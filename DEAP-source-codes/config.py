@@ -21,8 +21,7 @@ def parse_tsp_names(description="Run on selected TSP instances"):
     parser.add_argument(
         "tsp",
         nargs="*",
-        default=TSP_NAMES,
         choices=TSP_NAMES,
         help="one or more of: " + ", ".join(TSP_NAMES) + " (default: all)",
     )
-    return parser.parse_args().tsp
+    return parser.parse_args().tsp or TSP_NAMES
