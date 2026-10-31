@@ -82,7 +82,7 @@ class TravelingSalesmanProblem:
                     break
 
                 # drop the index at the beginning of the line, keep x,y:
-                self.locations.append(np.asarray(parts[1:3], dtype=np.float32))
+                self.locations.append(np.asarray(parts[1:3], dtype=np.float64))
 
             # set the problem 'size':
             self.tspSize = len(self.locations)
@@ -116,6 +116,14 @@ class TravelingSalesmanProblem:
             distance += self.distances[indices[i]][indices[i + 1]]
 
         return distance
+
+    def getTotalDistanceRounded(self, indices):
+        """TSPLIB EUC_2D length: round each edge to the nearest integer, then sum."""
+        total = 0
+        for i in range(len(indices)):
+            a, b = indices[i], indices[(i+1) % len(indices)]
+            total += int(self.distances[a][b] + 0.5)
+        return total
 
     def plotData(self, indices):
         """plots the path described by the given indices of the cities
@@ -158,7 +166,11 @@ def main():
         tsp = TravelingSalesmanProblem(name)
         tour = tsp.loadTour()
         assert sorted(tour) == list(range(len(tsp))), "tour must be a valid permutation"
-        print(f"{name}: {len(tsp)} cities, optimal length = {tsp.getTotalDistance(tour):.2f}")
+        print(
+            f"{name}: {len(tsp)} cities, "
+            f"length = {tsp.getTotalDistance(tour):.2f}, "
+            f"optimal (TSPLIB, rounded) = {tsp.getTotalDistanceRounded(tour)}"
+        )
 
         plot = tsp.plotData(tour)
         plot.title(f"{name} optimal tour")
