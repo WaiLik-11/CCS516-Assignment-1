@@ -1,14 +1,10 @@
-import csv
-import gzip
 import pickle
 import os
-import codecs
 
 import numpy as np
-
-from urllib.request import urlopen
-
 import matplotlib.pyplot as plt
+
+import config
 
 
 class TravelingSalesmanProblem:
@@ -34,7 +30,7 @@ class TravelingSalesmanProblem:
         self.distances = []
         self.tspSize = 0
 
-        self.data_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tsp-data")
+        self.data_path = str(config.TSP_DATA_DIR)
 
         # initialize the data:
         self.__initData()
@@ -71,31 +67,25 @@ class TravelingSalesmanProblem:
         """
         self.locations = []
 
-        # open whitespace-delimited file from url and read lines from it:
+        # open the whitespace-delimited TSPLIB file and read lines from it:
         with open(os.path.join(self.data_path, f"{self.name}.tsp")) as f:
-            reader = csv.reader(f, delimiter=' ', skipinitialspace=True)
-
             # skip lines until one of these lines is found:
-            for row in reader:
-                if row[0] in ('DISPLAY_DATA_SECTION', 'NODE_COORD_SECTION'):
+            for line in f:
+                if line.strip() in ('DISPLAY_DATA_SECTION', 'NODE_COORD_SECTION'):
                     break
 
-            # read data lines until 'EOF' found:
-            for row in reader:
-                if row[0] != 'EOF':
-                    # remove index at beginning of line:
-                    del row[0]
-
-                    # convert x,y coordinates to ndarray:
-                    self.locations.append(np.asarray(row, dtype=np.float32))
-                else:
+            # read data lines until 'EOF' (or end of file, e.g. pr1002) is found;
+            # split() ignores leading/trailing/repeated spaces:
+            for line in f:
+                parts = line.split()
+                if not parts or parts[0] == 'EOF':
                     break
+
+                # drop the index at the beginning of the line, keep x,y:
+                self.locations.append(np.asarray(parts[1:3], dtype=np.float32))
 
             # set the problem 'size':
             self.tspSize = len(self.locations)
-
-            # print data:
-            print(f"length = {self.tspSize}, locations = {self.locations}")
 
             # initialize distance matrix by filling it with 0's:
             self.distances = [[0] * self.tspSize for _ in range(self.tspSize)]
@@ -107,7 +97,6 @@ class TravelingSalesmanProblem:
                     distance = np.linalg.norm(self.locations[j] - self.locations[i])
                     self.distances[i][j] = distance
                     self.distances[j][i] = distance
-                    print(f"{i}, {j}: location1 = {self.locations[i]}, location2 = {self.locations[j]} => distance = {distance}")
 
             # serialize locations and distances:
             pickle.dump(self.locations, open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "wb"))
@@ -147,25 +136,34 @@ class TravelingSalesmanProblem:
 
         return plt
 
+    def loadTour(self, tour_file=None):
+        path = tour_file or os.path.join(self.data_path, f"{self.name}.opt.tour")
+        tour, started = [], False
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if line == "TOUR_SECTION":
+                    started = True
+                elif started:
+                    for token in line.split():
+                        if token in ("-1", "EOF"):
+                            return tour
+                        tour.append(int(token) - 1)  # TSPLIB IDs are 1-based
+        return tour
 
 # testing the class:
 def main():
-    # create a problem instance:
-    tsp = TravelingSalesmanProblem("bayg29")
+    config.PLOTS_DIR.mkdir(exist_ok=True)
+    for name in config.parse_tsp_names("Plot optimal tours"):
+        tsp = TravelingSalesmanProblem(name)
+        tour = tsp.loadTour()
+        assert sorted(tour) == list(range(len(tsp))), "tour must be a valid permutation"
+        print(f"{name}: {len(tsp)} cities, optimal length = {tsp.getTotalDistance(tour):.2f}")
 
-    # generate a random solution and evaluate it:
-    #randomSolution = random.sample(range(len(tsp)), len(tsp))
-
-    # see http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsp/bayg29.opt.tour
-    optimalSolution = [0, 27, 5, 11, 8, 25, 2, 28, 4, 20, 1, 19, 9, 3, 14, 17, 13, 16, 21, 10, 18, 24, 6, 22, 7, 26, 15, 12, 23]
-
-    print("Problem name: " + tsp.name)
-    print("Optimal solution = ", optimalSolution)
-    print("Optimal distance = ", tsp.getTotalDistance(optimalSolution))
-
-    # plot the solution:
-    plot = tsp.plotData(optimalSolution)
-    plot.show()
+        plot = tsp.plotData(tour)
+        plot.title(f"{name} optimal tour")
+        plot.savefig(config.PLOTS_DIR / f"{name}_opt.png", dpi=150)
+        plot.close()
 
 
 if __name__ == "__main__":

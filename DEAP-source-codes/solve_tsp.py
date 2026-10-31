@@ -2,6 +2,9 @@ from deap import base
 from deap import creator
 from deap import tools
 
+import sys
+import config
+
 import random
 import array
 
@@ -17,7 +20,7 @@ RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
 
 # create the desired traveling salesman problem instace:
-TSP_NAME = "bayg29"  # name of problem
+TSP_NAME = config.parse_tsp_names()[0]
 tsp = tsp.TravelingSalesmanProblem(TSP_NAME)
 
 # Genetic Algorithm constants:
