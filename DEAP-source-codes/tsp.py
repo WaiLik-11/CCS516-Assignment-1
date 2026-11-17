@@ -43,13 +43,16 @@ class TravelingSalesmanProblem:
         return self.tspSize
 
     def __initData(self):
-        """Reads the serialized data, and if not available - calls __create_data() to prepare it
-        """
+        """Reads the serialized data, and if not available - calls __create_data() to prepare it"""
 
         # attempt to read serialized data:
         try:
-            self.locations = pickle.load(open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "rb"))
-            self.distances = pickle.load(open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "rb"))
+            self.locations = pickle.load(
+                open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "rb")
+            )
+            self.distances = pickle.load(
+                open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "rb")
+            )
         except (OSError, IOError):
             pass
 
@@ -71,14 +74,14 @@ class TravelingSalesmanProblem:
         with open(os.path.join(self.data_path, f"{self.name}.tsp")) as f:
             # skip lines until one of these lines is found:
             for line in f:
-                if line.strip() in ('DISPLAY_DATA_SECTION', 'NODE_COORD_SECTION'):
+                if line.strip() in ("DISPLAY_DATA_SECTION", "NODE_COORD_SECTION"):
                     break
 
             # read data lines until 'EOF' (or end of file, e.g. pr1002) is found;
             # split() ignores leading/trailing/repeated spaces:
             for line in f:
                 parts = line.split()
-                if not parts or parts[0] == 'EOF':
+                if not parts or parts[0] == "EOF":
                     break
 
                 # drop the index at the beginning of the line, keep x,y:
@@ -99,8 +102,14 @@ class TravelingSalesmanProblem:
                     self.distances[j][i] = distance
 
             # serialize locations and distances:
-            pickle.dump(self.locations, open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "wb"))
-            pickle.dump(self.distances, open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "wb"))
+            pickle.dump(
+                self.locations,
+                open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "wb"),
+            )
+            pickle.dump(
+                self.distances,
+                open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "wb"),
+            )
 
     def getTotalDistance(self, indices):
         """Calculates the total distance of the path described by the given indices of the cities
@@ -121,8 +130,8 @@ class TravelingSalesmanProblem:
         """TSPLIB EUC_2D length: round each edge to the nearest integer, then sum."""
         total = 0
         for i in range(len(indices)):
-            a, b = indices[i], indices[(i+1) % len(indices)]
-            total += int(self.distances[a][b] + 0.5)
+            a, b = indices[i], indices[(i + 1) % len(indices)]
+            total += round(self.distances[a][b])
         return total
 
     def plotData(self, indices):
@@ -133,14 +142,14 @@ class TravelingSalesmanProblem:
         """
 
         # plot the dots representing the cities:
-        plt.scatter(*zip(*self.locations), marker='.', color='red')
+        plt.scatter(*zip(*self.locations), marker=".", color="red")
 
         # create a list of the corresponding city locations:
         locs = [self.locations[i] for i in indices]
         locs.append(locs[0])
 
         # plot a line between each pair of consequtive cities:
-        plt.plot(*zip(*locs), linestyle='-', color='blue')
+        plt.plot(*zip(*locs), linestyle="-", color="blue")
 
         return plt
 
@@ -158,6 +167,7 @@ class TravelingSalesmanProblem:
                             return tour
                         tour.append(int(token) - 1)  # TSPLIB IDs are 1-based
         return tour
+
 
 # testing the class:
 def main():
