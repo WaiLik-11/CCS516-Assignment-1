@@ -1,6 +1,6 @@
 {
   "command": "uv run python DEAP-source-codes/experiments.py step2 --jobs 16",
-  "created": "2026-11-17T21:48:03",
+  "created": "2026-11-18T00:01:12",
   "max_evaluations": 50000,
   "step": "step2",
   "description": "Mutation operator: swap vs inversion, checked at a higher rate and with ERX to see whether the choice depends on the crossover studied later",
@@ -35,7 +35,14 @@
       "crossover_indpb": null,
       "mutation": "swap",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "inversion": {
       "population_size": 300,
@@ -46,7 +53,14 @@
       "crossover_indpb": null,
       "mutation": "inversion",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "swap-pm0.5": {
       "population_size": 300,
@@ -57,7 +71,14 @@
       "crossover_indpb": null,
       "mutation": "swap",
       "p_mutation": 0.5,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "inversion-pm0.5": {
       "population_size": 300,
@@ -68,7 +89,14 @@
       "crossover_indpb": null,
       "mutation": "inversion",
       "p_mutation": 0.5,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "swap-erx": {
       "population_size": 300,
@@ -79,7 +107,14 @@
       "crossover_indpb": null,
       "mutation": "swap",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "inversion-erx": {
       "population_size": 300,
@@ -90,12 +125,15 @@
       "crossover_indpb": null,
       "mutation": "inversion",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     }
-  },
-  "git": {
-    "commit": "484074b633ef517789af0af2535201ca2b920a54",
-    "uncommitted_changes": true
   },
   "versions": {
     "python": "3.12.4",

@@ -137,7 +137,7 @@ ERX is designed specifically for the TSP: it builds children almost entirely fro
 - **Parent selection:** tournament selection (`tools.selTournament`). The tournament size *k* sets the selection pressure [15]. Fitness-proportional selection (`selRoulette`) was excluded: DEAP's documentation warns it is not suitable for minimisation, and it is sensitive to the scale of the fitness values [1].
 - **Survivor selection:** generational replacement with elitism (Section 3.2).
 - **Population size** μ and elite size: studied in the experiments, because with a fixed budget a smaller population gets more generations.
-- **Initialization:** uniformly random permutations (`tools.initIterate` with `random.sample`).
+- **Initialization:** the template uses uniformly random permutations (`tools.initIterate` with `random.sample`). Step 9 tests **heuristic initialization** [27]: part or all of the initial population is built by the greedy nearest-neighbour rule (start at a city and always move to the closest unvisited city), each tour from a different, randomly chosen start city. Building these tours reads the distance matrix but evaluates no tour, so it costs no fitness evaluations. The tours themselves are evaluated as part of the initial population, and those evaluations are counted.
 - **Random seeds:** each run seeds Python's `random` (used by all DEAP operators) and NumPy at the start, so every run can be repeated exactly (Section 4).
 
 **Table 1b.** Final EA design and the experiments that justify each choice.
@@ -145,11 +145,11 @@ ERX is designed specifically for the TSP: it builds children almost entirely fro
 | Component | Final choice | Evidence |
 |---|---|---|
 | Representation, fitness | Permutation of city indices; TSPLIB EUC_2D tour length | Given; Section 2.3 |
-| Initialization | Uniformly random permutations | Template choice, kept (DEAP `initIterate`) |
+| Initialization | All 50 individuals are nearest-neighbour tours from distinct random start cities | Step 9: 59.7% shorter tours than random initialization on the reporting seeds (*p* = 10⁻⁷); better than seeding 5 of 50 (*p* = 0.0002) |
 | Parent selection | Tournament, size *k* = 2 (`tools.selTournament`) | Step 5a: better than *k* = 1, 3, 5, 7 (all *p* < 0.001) |
 | Crossover | Order crossover OX (`tools.cxOrdered`) | Step 3: better than PMX and UPMX; Steps 4 and 7: better than ERX and no crossover at μ = 50 |
 | Mutation | Inversion (`tools.mutInversion`) | Step 7: better than swap at μ = 50 (−4.9%, *p* = 0.011); confirmed on the reporting seeds (−3.6%, *p* = 0.048) |
-| Probabilities *p_c*, *p_m* | Each generation, one of (0.6, 0.05), (0.9, 0.1), (1.0, 0.2) drawn uniformly at random | Steps 6b and 7b: better than the fixed (0.9, 0.1) (*p* = 0.039 with swap, 0.022 with inversion); learning (adaptive pursuit) not better; confirmed on the reporting seeds (−2.0%, *p* = 0.045) |
+| Probabilities *p_c*, *p_m* | Fixed, *p_c* = 0.9, *p_m* = 0.1 | Step 5b: no setting better overall. With random initialization, uniform mixing of three settings was better (Steps 6b, 7b, 8), but with nearest-neighbour initialization it is not (Step 9: *p* = 0.26 tuning, 0.063 reporting), so the simpler fixed setting is kept |
 | Population model | Generational, μ = 50, of which 5 elites (`tools.HallOfFame`) copied unchanged | Steps 4 and 4b: μ = 50 better than 300, 100, 20, 10; not significantly different from 30 |
 | Survivor selection | Offspring replace the parents; the 5 best-ever tours survive | Elitism keeps the best tour (Section 3.2) |
 | Termination | Exactly 50,000 fitness evaluations | Assignment; counted in `elitism.py` |
@@ -162,7 +162,7 @@ ERX is designed specifically for the TSP: it builds children almost entirely fro
 - **Budget:** exactly 50,000 fitness evaluations per run (checked in every run).
 - **Tuning vs. reporting seeds:** all design comparisons use tuning seeds 101–105. The final results use separate seeds 1–5, so the reported numbers are not tuned on the seeds that produced them.
 - **Metrics:** best, mean, worst and standard deviation of the final tour length over the runs, and the deviation of the mean from the optimum (Section 1). Convergence curves show the best length found against the number of evaluations used.
-- **Reproducibility:** each design step is defined in `experiments.py` as a set of variants. Running a step writes `metadata.json` with the full parameters of every variant, the seeds, the exact command, the git commit and the library versions, together with the per-run results (`runs.csv`), the summary (`summary.csv`) and the convergence data. Results do not depend on how many runs execute in parallel, because each run seeds itself. Any table in this report can be regenerated with the command in its `metadata.json`.
+- **Reproducibility:** each design step is defined in `experiments.py` as a set of variants. Running a step writes `metadata.json` with the full parameters of every variant, the seeds, the exact command and the library versions, together with the per-run results (`runs.csv`), the summary (`summary.csv`) and the convergence data. Results do not depend on how many runs execute in parallel, because each run seeds itself. Any table in this report can be regenerated with the command in its `metadata.json`.
 - **Statistics:** each variant is compared with a reference variant on the same seeds, so each pair of runs starts from the same initial population. For each instance we report the number of seeds on which the variant wins. Over all instances we apply the two-sided Wilcoxon signed-rank test [16] to the 25 paired **log length ratios** log(L_variant / L_reference), and report their geometric mean as the relative difference in tour length (negative = shorter tours). Relative differences give every instance equal weight; differences in deviation % would not (Section 6, item 12). A per-instance test is not meaningful with 5 seeds, because the exact two-sided *p*-value cannot go below 0.0625. `experiments.py --reanalyse` recomputes all comparisons from the saved runs.
 
 ## 4.2 Design strategy: one component at a time
@@ -400,7 +400,7 @@ Both controllers are a generational loop in `elitism.py` with the same elitism a
 
 **Relation to No Free Lunch and per-instance tuning.** Self-adaptation reproduced the instance split of Step 5b: it worked where more mutation helps. Adaptive pursuit did not learn instance-specific settings at all. The best per-instance fixed settings from Step 5b were 1–8% better than the tuned design on single instances, but they were selected on the same seeds and are therefore optimistic (compared on the reporting seeds in Section 5.8). Within this assignment, a simple **randomised mix of settings** was as good as any learning controller.
 
-**Candidates for the final design.** (a) Tuned fixed probabilities, the simplest; (b) uniform mix, simple with no extra parameters; (c) adaptive pursuit with α = β = 0.1, the best mean on the tuning seeds. The final choice is made on the reporting seeds (Section 5.8).
+**Candidates for the next design (Sections 5.8–5.9).** (a) Tuned fixed probabilities, the simplest; (b) uniform mix, simple with no extra parameters; (c) adaptive pursuit with α = β = 0.1, the best mean on the tuning seeds. The final choice is made on the reporting seeds (Section 5.8).
 
 ## 5.7 Synthesis: exploration versus exploitation
 
@@ -425,9 +425,11 @@ The results of Steps 1–6 are explained by one trade-off. **Exploration** means
 3. **The instance dependence is the same trade-off.** The small instances converge within the budget, so they benefit from *more exploration*: higher *p_c* and *p_m* (Step 5b), and self-adaptation, which raised *p_m* (Step 6). pr1002 is far from converged when the budget runs out, so it benefited from *every* more exploitative option: no crossover (Steps 3–4), μ = 30 (Step 4b), *k* = 3 (Step 5a), and low *p_c* and *p_m* (Step 5b). A larger instance needs more generations to exploit, and 50,000 evaluations provide too few. This explains why pr1002 was the outlier in almost every step, and why one fixed setting cannot suit all five instances.
 4. **Parameter control in these terms.** Self-adaptation moved every instance towards exploration (rising *p_m*), which suits the small instances but not the large ones. Uniform mixing alternates generations of conservative variation (exploitation) and disruptive variation (exploration). We *hypothesise* that this alternation is why it beats any single fixed setting, but our data does not test this directly.
 
+5. **Initialization (Step 9) in these terms.** Nearest-neighbour seeding uses problem knowledge to start the search in a good region, so that the budget is spent on exploitation from the start. Starting every tour at a different city keeps enough diversity for crossover to work. On the large instances, however, the population converges (about 1.03 distinct edges per city at the end) before the operators find many improvements.
+
 **Limitation.** The gap measures diversity in *fitness* only. Two populations with the same gap can differ in how many distinct tours, or distinct edges, they contain. A genotypic measure, such as the number of distinct edges in the population, would test points 2 and 4 more directly. From Step 7 onwards we therefore also log the number of distinct edges in the population per city (1.0 = all tours identical). It confirms points 2 and 3: the variants that collapse the population in fitness also collapse it in edges (Table 10).
 
-## 5.8 Verification step and final results
+## 5.8 Verification step and the design with random initialization
 
 **Step 7: verification.** At the design after Step 5, tournament size, population size and probabilities had already been varied around exactly this design (Steps 4b, 5a, 5b). The mutation (Step 2) and crossover (Step 3) had been chosen at μ = 300, *before* the population size changed, so they were re-tested at μ = 50 (tuning seeds).
 
@@ -452,16 +454,16 @@ The edge diversity is consistent with Section 5.7. Inversion keeps the most dist
 - Uniform mixing of the three (*p_c*, *p_m*) settings was again significantly better than fixed probabilities (−1.85%, *p* = 0.022, better on 4 of 5 instances). This replicates Step 6b with a different mutation.
 - Adaptive pursuit (α = β = 0.1) was again not better than uniform mixing (*p* = 0.67).
 
-**Decision rule, fixed before the final runs.** The final design is the simplest variant that is (a) not significantly worse than the best variant and (b) significantly better than the fixed design. On the tuning seeds this is **inversion with uniform mixing**. Fixed *p_m* = 0.05 meets (a) (*p* = 0.16 against uniform mixing) but not (b) (*p* = 0.35 against *p_m* = 0.1).
+**Decision rule, fixed before the reporting runs.** The chosen design is the simplest variant that is (a) not significantly worse than the best variant and (b) significantly better than the fixed design. On the tuning seeds this is **inversion with uniform mixing**. Fixed *p_m* = 0.05 meets (a) (*p* = 0.16 against uniform mixing) but not (b) (*p* = 0.35 against *p_m* = 0.1).
 
-**Final results (Step 8, reporting seeds 1–5, not used for any decision).** The final design (Table 1b) was run together with four comparison designs:
+**Step 8: the random-start design on the reporting seeds (not used for any decision).** The design chosen by this rule (inversion with uniform mixing, random initialization) was run together with four comparison designs:
 
 - the same design with fixed probabilities;
 - the Step 5 design (swap, fixed probabilities);
 - the original template;
 - per-instance tuned *p_m*: the best fixed *p_m* per instance from Step 7b.
 
-**Table 11.** Final design, reporting seeds 1–5, 50,000 evaluations per run. Deviation % = (Average − Optimum) / Optimum × 100.
+**Table 11.** Step 8 design (random initialization), reporting seeds 1–5, 50,000 evaluations per run.
 
 | Instance | Optimum | Best | Average | Worst | Std | **Deviation %** |
 |---|---|---|---|---|---|---|
@@ -471,24 +473,82 @@ The edge diversity is consistent with Section 5.7. Inversion keeps the most dist
 | pcb442 | 50778 | 233258 | 244881.0 | 258044 | 10459.2 | **382.26** |
 | pr1002 | 259045 | 2648409 | 2716950.6 | 2755659 | 42174.6 | **948.83** |
 
-**Table 12.** Mean deviation % on the reporting seeds, and pooled comparisons with the final design (relative difference in tour length; negative = the final design's tours are shorter).
+**Table 12.** Mean deviation % on the reporting seeds, and pooled comparisons with the Step 8 design (relative difference in tour length; negative = the Step 8 design's tours are shorter).
 
-| Design | berlin52 | eil101 | tsp225 | pcb442 | pr1002 | Final vs this | Wins (final) | *p* |
+| Design | berlin52 | eil101 | tsp225 | pcb442 | pr1002 | Step 8 vs this | Wins (Step 8) | *p* |
 |---|---|---|---|---|---|---|---|---|
-| **Final** (inversion, uniform mix) | 8.80 | **20.06** | 139.37 | 382.26 | 948.83 | | | |
+| **Step 8 design** (inversion, uniform mix) | 8.80 | **20.06** | 139.37 | 382.26 | 948.83 | | | |
 | Fixed probabilities (inversion) | **7.53** | 23.69 | 144.93 | 404.13 | 965.22 | −1.97% | 18/25 | 0.045 |
 | Step 5 design (swap, fixed) | 17.43 | 41.05 | 152.98 | **369.94** | 963.43 | −5.45% | 20/25 | 0.0015 |
 | Original template | 19.28 | 88.24 | 364.59 | 724.68 | 1543.74 | −35.48% | 25/25 | 6·10⁻⁸ |
 | Per-instance tuned *p_m* | 7.53 | 27.95 | **137.49** | 376.60 | **945.83** | −0.61% | 13/25 | 0.85 |
 
-[TODO Figures: `results/step8-final/best_tour_final_<tsp>.png` (best tour per instance) and `results/step8-final/convergence_<tsp>.png`.]
-
 **Discussion.**
 
-1. **The decisions made on the tuning seeds hold on fresh seeds.** Inversion beats swap (−3.6%, *p* = 0.048), uniform mixing beats fixed probabilities (−2.0%, *p* = 0.045), and the final design beats the original template on all 25 runs, with tours 35.5% shorter. It lowers the deviation on every instance (berlin52 19.3% → 8.8%, eil101 88.2% → 20.1%, tsp225 365% → 139%, pcb442 725% → 382%, pr1002 1544% → 949%). The gains from mixing are small (about 2%) and only just significant, so they should be read as modest.
-2. **Tuning every instance separately does not pay off.** The per-instance tuned *p_m* is not better than the final design (*p* = 0.85). It also did not beat the fixed design significantly on the fresh seeds (−1.4%, *p* = 0.079), although on the tuning seeds the same choices looked 1–8% better on single instances. This is the optimism of choosing on the same seeds (Section 5.6). One shared design with simple parameter control is as good as five tuned designs.
-3. **The final design is not best on every instance.** Fixed probabilities are slightly better on berlin52 (7.5% vs 8.8%), and the swap design is better on pcb442. As the NFL discussion in Section 5.6 predicts, no single design is best everywhere.
-4. **The large instances remain far from optimal.** Deviations of 140–950% for tsp225–pr1002 are large in absolute terms. With 50,000 evaluations, pr1002 gets about 50 evaluations per city, starting from random tours whose length is more than 20 times the optimum (Section 5.1). An EA that only uses general permutation operators cannot close this gap within the budget. Problem-specific knowledge would: an earlier, rejected design of ours used greedy nearest-neighbour start tours and a neighbour-guided 2-opt mutation, and reached 4.7–11.6% on all five instances. That design was not adopted because those operators are not standard DEAP or literature operators (Section 6, item 5), but it shows where further improvement lies. Natural extensions are heuristic initialization [TODO cite, e.g. Grefenstette 1987] and a memetic EA that applies 2-opt local search to offspring [13], with every local-search move counted against the budget.
+1. **The decisions made on the tuning seeds hold on fresh seeds.** Inversion beats swap (−3.6%, *p* = 0.048), uniform mixing beats fixed probabilities (−2.0%, *p* = 0.045), and the Step 8 design beats the original template on all 25 runs, with tours 35.5% shorter. It lowers the deviation on every instance (berlin52 19.3% → 8.8%, eil101 88.2% → 20.1%, tsp225 365% → 139%, pcb442 725% → 382%, pr1002 1544% → 949%). The gains from mixing are small (about 2%) and only just significant, so they should be read as modest.
+2. **Tuning every instance separately does not pay off.** The per-instance tuned *p_m* is not better than the Step 8 design (*p* = 0.85). It also did not beat the fixed design significantly on the fresh seeds (−1.4%, *p* = 0.079), although on the tuning seeds the same choices looked 1–8% better on single instances. This is the optimism of choosing on the same seeds (Section 5.6). One shared design with simple parameter control is as good as five tuned designs.
+3. **The Step 8 design is not best on every instance.** Fixed probabilities are slightly better on berlin52 (7.5% vs 8.8%), and the swap design is better on pcb442. As the NFL discussion in Section 5.6 predicts, no single design is best everywhere.
+4. **The large instances remain far from optimal.** Deviations of 140–950% for tsp225–pr1002 are large in absolute terms. With 50,000 evaluations, pr1002 gets about 50 evaluations per city, starting from random tours whose length is more than 20 times the optimum (Section 5.1). An EA that only uses general permutation operators cannot close this gap within the budget. This pointed to the one design component not yet tested: the **initialization** (Step 9).
+
+## 5.9 Step 9: heuristic initialization and final results
+
+**Question.** The assignment lists initialization as a design component, but Steps 1–8 kept the template's random start. Does heuristic initialization [27], [1] help, and how much of the initial population should be seeded?
+
+At the Step 8 design, *s* of the 50 initial individuals were built by the nearest-neighbour rule from *s* distinct random start cities (Section 3.4), and the rest stayed random: *s* ∈ {0, 1, 5, 15, 50}. Two variants with fixed probabilities (*p_c* = 0.9, *p_m* = 0.1) checked whether uniform mixing still helps with a seeded start.
+
+**Table 13.** Step 9, mean deviation % over the tuning seeds 101–105 (decisions), and pooled comparisons.
+
+| Initial population | berlin52 | eil101 | tsp225 | pcb442 | pr1002 | Comparison | Rel. diff. | *p* |
+|---|---|---|---|---|---|---|---|---|
+| Random (Step 8 design) | 6.37 | 21.84 | 136.15 | 377.31 | 964.84 | | | |
+| 1 NN tour | 4.12 | 8.11 | 20.63 | 21.00 | 26.68 | vs random | −57.8% | 6·10⁻⁷ |
+| 5 NN tours | 4.40 | 6.49 | 17.19 | 17.32 | 21.94 | vs random | −58.7% | 6·10⁻⁷ |
+| 15 NN tours | 2.43 | 5.50 | 15.27 | 16.07 | 22.23 | vs 5 NN | −1.05% | 0.063 |
+| 50 NN tours | **0.59** | **5.31** | **13.66** | 15.62 | **20.95** | vs 5 NN | −2.00% | 0.0004 |
+| 5 NN, fixed probabilities | 4.60 | 6.77 | 16.01 | 17.42 | 22.06 | vs 5 NN mixed | −0.07% | 0.96 |
+| 50 NN, fixed probabilities | 1.66 | 5.72 | 14.51 | **15.62** | 21.16 | vs 50 NN mixed | +0.47% | 0.26 |
+
+**Findings.**
+
+1. **Initialization has by far the largest effect in the whole study.** A single nearest-neighbour tour in the initial population shortens the final tours by 58% (23 of 25 runs). On pr1002 the deviation falls from 965% to 27%. Under a budget of 50,000 evaluations, where the EA starts matters more than any operator or parameter choice.
+2. **Seeding the whole population is best.** 50 NN tours are significantly better than 5 (−2.0%, *p* = 0.0004). The worry that seeding destroys diversity does not apply here: each tour starts from a different city, so the seeded tours differ, and the population keeps about 2.3 distinct edges per city on berlin52 at the end of the run.
+3. **Parameter control no longer helps.** With a seeded start, uniform mixing is not better than fixed probabilities (*p* = 0.96 with 5 NN tours, *p* = 0.26 with 50). Its benefit in Steps 6b–8 came from searching *from random tours*. In terms of Section 5.7, a seeded population already starts in a good region and needs little exploration.
+
+**Decision (same rule as Step 8, fixed before the reporting runs):** the simplest variant not significantly worse than the best. This is **50 NN tours with fixed probabilities** (+0.47% vs the best, *p* = 0.26). This is the final design (Table 1b).
+
+**Final results (reporting seeds 1–5, not used for any decision).** All Step 9 variants were run on the reporting seeds. The findings hold:
+
+- Seeding vs random: tours 59.7% shorter, *p* = 1.2·10⁻⁷.
+- 50 vs 5 NN tours: 2.4% shorter, *p* = 0.0002.
+- Fixed vs mixed probabilities: not significantly different (+0.57%, *p* = 0.063), although mixing won 16 of 25 runs.
+
+**Table 14. Final results.** Final design (Table 1b), reporting seeds 1–5, 50,000 evaluations per run. Deviation % = (Average − Optimum) / Optimum × 100.
+
+| Instance | Optimum | Best | Average | Worst | Std | **Deviation %** |
+|---|---|---|---|---|---|---|
+| berlin52 | 7542 | **7542** | 7676.8 | 7807 | 115.4 | **1.79** |
+| eil101 | 629 | 654 | 666.0 | 681 | 9.9 | **5.88** |
+| tsp225 | 3916 | 4369 | 4442.8 | 4520 | 61.3 | **13.45** |
+| pcb442 | 50778 | 58421 | 59095.2 | 59620 | 483.5 | **16.38** |
+| pr1002 | 259045 | 311547 | 312796.0 | 313703 | 895.0 | **20.75** |
+
+The best run on berlin52 finds the optimal tour (7542). Relative to the original template on the same seeds (Table 12), the deviation fell from 19.3% to 1.8% on berlin52, from 88.2% to 5.9% on eil101, from 365% to 13.4% on tsp225, from 725% to 16.4% on pcb442, and from 1544% to 20.8% on pr1002.
+
+[TODO Figures: `results/step9-reporting/best_tour_nn-50-fixed_<tsp>.png` (best tour per instance) and `results/step9-reporting/convergence_<tsp>.png`.]
+
+**How much of this is the EA, and how much the heuristic?** A seeded EA must be compared with the heuristic it starts from. Table 15 compares, per run, the best of the 50 nearest-neighbour tours in the initial population with the final result.
+
+**Table 15.** Mean deviation % of the best initial tour and of the final tour (reporting seeds), and the EA's improvement.
+
+| Instance | Best initial NN tour | Final (EA) | Improvement by the EA |
+|---|---|---|---|
+| berlin52 | 8.47% | 1.79% | −6.16% |
+| eil101 | 19.17% | 5.88% | −11.15% |
+| tsp225 | 17.70% | 13.45% | −3.61% |
+| pcb442 | 17.43% | 16.38% | −0.90% |
+| pr1002 | 21.25% | 20.75% | −0.41% |
+
+On the two small instances the EA does most of the work: it turns tours 8–19% above the optimum into tours 2–6% above it. On pcb442 and pr1002 it improves the starting tours by less than 1%, so **on the large instances the result is mostly due to the heuristic**. The reason lies in the operators. Inversion reverses a *random* segment, and on an already good tour of 442 or 1002 cities almost every such move makes the tour longer. Improving a good large tour requires moves between *nearby* cities, which is local search. The natural next step is therefore a memetic EA that applies a neighbourhood-restricted 2-opt move to offspring [13], with every evaluation counted against the budget. An earlier draft of our design (Section 6, item 5) used such a neighbour-guided move and reached about 12% on pr1002, which supports this explanation.
 
 # 6. Problems and pitfalls
 
@@ -517,6 +577,8 @@ The edge diversity is consistent with Section 5.7. Inversion keeps the most dist
 17. **The order of the steps mattered, and the verification step caught it.** Swap mutation was chosen at μ = 300 (Step 2) but was the wrong choice at the final μ = 50 (Step 7). Without the verification step we would have kept swap, which on the reporting seeds gives 3.6% longer tours than inversion (both with fixed probabilities).
 18. **Separate reporting seeds expose optimistic choices.** Per-instance tuned probabilities looked better on the tuning seeds but gave no significant gain on the reporting seeds. Without separate seeds, the per-instance design would have looked better than it is.
 19. **Fixing the decision rule before the final runs.** We wrote down how the final design would be chosen before running the reporting seeds. This prevents picking whichever variant happens to look best on the seeds used for reporting.
+20. **The untested default mattered most.** Initialization was the one design component we had not tested, because the template's random start was kept by default. It turned out to have by far the largest effect (−59.7%). Defaults deserve testing as much as the parameters that look interesting.
+21. **Crediting the right component.** With a seeded start, the final tours on pcb442 and pr1002 are less than 1% shorter than the best starting tour. Reporting "20.8% on pr1002" without that comparison would credit the EA for what the heuristic did.
 
 **Knowledge and experience gained.** [TODO 1 paragraph per member.]
 
@@ -575,3 +637,5 @@ The edge diversity is consistent with Section 5.7. Inversion keeps the most dist
 [25] A. E. Eiben and C. A. Schippers, "On evolutionary exploration and exploitation," *Fundamenta Informaticae*, vol. 35, no. 1–4, pp. 35–50, 1998.
 
 [26] M. Črepinšek, S.-H. Liu, and M. Mernik, "Exploration and exploitation in evolutionary algorithms: A survey," *ACM Comput. Surv.*, vol. 45, no. 3, art. 35, pp. 1–33, 2013.
+
+[27] J. J. Grefenstette, "Incorporating problem specific knowledge into genetic algorithms," in *Genetic Algorithms and Simulated Annealing*, L. Davis, Ed. London, U.K.: Pitman, 1987, pp. 42–60.

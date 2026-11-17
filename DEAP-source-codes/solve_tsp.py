@@ -33,6 +33,7 @@ BASELINE = dict(
     mutation="swap",       # tools.mutShuffleIndexes
     p_mutation=0.1,        # P_MUTATION: probability that an offspring is mutated
     mutation_indpb=None,   # per-position swap probability for "swap"; None = 1/n (as in the template)
+    init_nn_fraction=0.0,  # share of the initial population built by nearest-neighbour (0 = all random)
     # parameter control (step 6): None = fixed p_crossover / p_mutation
     control=None,          # None, "adaptive-pursuit" or "self-adaptive-pm"
     ap_arms=None,          # adaptive pursuit: list of (p_crossover, p_mutation) settings to choose from
@@ -43,17 +44,14 @@ BASELINE = dict(
 )
 
 # Final design, chosen step by step in experiments.py (see README "Step log" and the report):
-# OX crossover, inversion mutation, tournament size 2, mu = 50 with 5 elites, and each generation one of
-# three (p_crossover, p_mutation) settings drawn uniformly at random ("uniform mix": adaptive pursuit
-# with beta = 0, so the arm probabilities stay at 1/3).
+# OX crossover (p_c 0.9), inversion mutation (p_m 0.1), tournament size 2, mu = 50 with 5 elites, and an
+# initial population of nearest-neighbour tours from 50 distinct random start cities (step 9).
 FINAL_DESIGN = {
     **BASELINE,
     "population_size": 50,
     "elite_size": 5,
     "mutation": "inversion",
-    "control": "adaptive-pursuit",
-    "ap_arms": [(0.6, 0.05), (0.9, 0.1), (1.0, 0.2)],
-    "ap_beta": 0.0,
+    "init_nn_fraction": 1.0,
 }
 
 # Operators that keep a permutation valid (all from DEAP, except ERX from operators.py)
@@ -152,8 +150,14 @@ def runEA(problem, params, seed, max_evals=config.MAX_EVALUATIONS, verbose=False
 
     toolbox = buildToolbox(problem, params)
 
-    # create initial population (generation 0):
-    population = toolbox.populationCreator(n=params["population_size"])
+    # create initial population (generation 0): random permutations, plus optionally some
+    # nearest-neighbour tours from distinct random start cities (heuristic initialization)
+    n_nn = round(params["population_size"] * params.get("init_nn_fraction", 0.0))
+    population = toolbox.populationCreator(n=params["population_size"] - n_nn)
+    if n_nn:
+        starts = random.sample(range(len(problem)), n_nn)
+        population += [creator.Individual(operators.nearestNeighbourTour(problem.distancesRounded, s))
+                       for s in starts]
 
     # prepare the statistics object:
     stats = PopulationStatistics()
