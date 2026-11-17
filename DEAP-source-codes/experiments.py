@@ -3,20 +3,20 @@
 Each step compares a few EA variants. A variant is a set of overrides on the step's base
 parameters (a dict like solve_tsp.BASELINE). Every variant is run once per seed on every
 selected TSP, each run with exactly config.MAX_EVALUATIONS fitness evaluations.
-All outputs of a step are written to results/<step>/ (results/<step>-final/ with --seeds final):
+All outputs of a step are written to results/<step>/ (results/<step>-reporting/ with --seeds reporting):
 
-    metadata.json          what was run: full parameters per variant, seeds, budget, git commit, versions
+    metadata.json          what was run: full parameters per variant, seeds, budget, command, versions
     runs.csv               one row per run: variant, tsp, seed, length, deviation %, evaluations, ...
     summary.csv            per variant and TSP: best / mean / worst / std, deviation % of the mean
     comparison.csv         variant vs reference: wins per TSP, Wilcoxon signed-rank p-value over all runs
     convergence.csv        per run, every CONVERGENCE_STEP evaluations: best length so far, population average
     convergence_<tsp>.png  best length vs evaluations (mean over seeds, shaded min-max)
-    best_tour_<variant>_<tsp>.png   only with --seeds final
+    best_tour_<variant>_<tsp>.png   only with --seeds reporting
 
 Usage (from the repo root):
     uv run python DEAP-source-codes/experiments.py step1                 # all 5 TSPs, tuning seeds
     uv run python DEAP-source-codes/experiments.py step1 berlin52 --jobs 4
-    uv run python DEAP-source-codes/experiments.py step1 --seeds final   # reporting seeds
+    uv run python DEAP-source-codes/experiments.py step1 --seeds reporting   # reporting seeds
 """
 
 import argparse
@@ -25,7 +25,6 @@ import json
 import multiprocessing
 import platform
 import statistics
-import subprocess
 import sys
 import time
 from bisect import bisect_right
@@ -190,30 +189,60 @@ STEPS["step7b"] = dict(
                 + [("inv-pm0.05", "inv-uniform-mix"), ("inv-ap-0.1", "inv-uniform-mix")],
 )
 
-# Final runs on the reporting seeds (--seeds final). Decision rule, fixed BEFORE running: the final
+# Step 8: the design chosen after step 7b, on the reporting seeds (--seeds reporting). It is not the final
+# design (step 9 adds heuristic initialization). Decision rule, fixed BEFORE running: the chosen
 # design is the simplest variant that is not significantly worse than the best and significantly better
 # than the fixed design. On the tuning seeds (step 7b) that is "inv-uniform-mix": best mean, better than
 # inv-pm0.1 (p = 0.022), and adaptive pursuit is not better (p = 0.67). inv-pm0.05 is not worse than
 # it (p = 0.16) but not better than inv-pm0.1 either (p = 0.35).
 # Compared on the fresh seeds: the same design with fixed probabilities, the step 5 design (swap), the
 # original template, and per-instance tuned p_m (best fixed p_m per TSP in step 7b).
-FINAL_DESIGN = {**INVERSION_DESIGN, "control": "adaptive-pursuit", "ap_arms": PURSUIT_ARMS, "ap_beta": 0.0}
-assert FINAL_DESIGN == solve_tsp.FINAL_DESIGN, "solve_tsp.FINAL_DESIGN must be the design chosen here"
+STEP8_DESIGN = {**INVERSION_DESIGN, "control": "adaptive-pursuit", "ap_arms": PURSUIT_ARMS, "ap_beta": 0.0}
 STEP7B_BEST_PM = {"berlin52": 0.1, "eil101": 0.2, "tsp225": 0.05, "pcb442": 0.05, "pr1002": 0.05}
 STEPS["step8"] = dict(
-    description="Final design (OX, inversion, k = 2, mu = 50, uniform mix of (p_c, p_m)) vs fixed probabilities, "
+    description="Random-start design after step 7b (OX, inversion, k = 2, mu = 50, uniform mix of (p_c, p_m)) vs fixed probabilities, "
                 "the step 5 design (swap), the original template and per-instance tuned p_m",
-    base=FINAL_DESIGN,
+    base=STEP8_DESIGN,
     variants={
-        "final": {},
+        "random-start": {},
         "inv-fixed": {"control": None},
         "swap-fixed": {"control": None, "mutation": "swap"},
         "template": dict(solve_tsp.BASELINE),
         "per-instance": {"control": None, "per_tsp": {t: {"p_mutation": pm} for t, pm in STEP7B_BEST_PM.items()}},
     },
-    comparisons=[("final", "inv-fixed"), ("final", "swap-fixed"), ("final", "template"),
-                 ("inv-fixed", "swap-fixed"), ("per-instance", "inv-fixed"), ("per-instance", "final")],
+    comparisons=[("random-start", "inv-fixed"), ("random-start", "swap-fixed"), ("random-start", "template"),
+                 ("inv-fixed", "swap-fixed"), ("per-instance", "inv-fixed"), ("per-instance", "random-start")],
 )
+
+# Step 9: initialization, the one design component not tested so far (the template's random start was
+# kept). Heuristic initialization: a share of the initial population is built by nearest-neighbour from
+# distinct random start cities (operators.nearestNeighbourTour); the rest stays random.
+STEPS["step9"] = dict(
+    description="Initialization: share of nearest-neighbour tours in the initial population "
+                "(0 = random, as in step 8), at the step 8 design",
+    base=STEP8_DESIGN,
+    variants={
+        "random": {},
+        "nn-1": {"init_nn_fraction": 0.02},     # 1 of 50
+        "nn-5": {"init_nn_fraction": 0.1},      # 5 of 50
+        "nn-15": {"init_nn_fraction": 0.3},
+        "nn-50": {"init_nn_fraction": 1.0},     # whole population
+        # does uniform mixing still help with a seeded start?
+        "nn-5-fixed": {"init_nn_fraction": 0.1, "control": None},
+        # fixed probabilities; the (unused) pursuit settings reset to their defaults
+        "nn-50-fixed": {"init_nn_fraction": 1.0, "control": None, "ap_arms": None, "ap_beta": 0.8},
+        # the original template on the same seeds, so the final comparison is within this step
+        "template": dict(solve_tsp.BASELINE),
+    },
+    comparisons=[(v, "random") for v in ("nn-1", "nn-5", "nn-15", "nn-50", "nn-5-fixed")]
+                + [("nn-1", "nn-5"), ("nn-15", "nn-5"), ("nn-50", "nn-5"), ("nn-5-fixed", "nn-5"),
+                   ("nn-50-fixed", "nn-50"), ("nn-50-fixed", "random"), ("nn-50-fixed", "template")],
+)
+
+# step 9 decision (tuning seeds), same rule as step 8 - the simplest variant not significantly worse
+# than the best: nn-50-fixed (vs nn-50: +0.47%, p = 0.26). Final results: step9 --seeds reporting
+assert {**STEP8_DESIGN, **STEPS["step9"]["variants"]["nn-50-fixed"]} == solve_tsp.FINAL_DESIGN, \
+    "solve_tsp.FINAL_DESIGN must be the design chosen in step 9"
 
 # convergence is recorded every CONVERGENCE_STEP evaluations (not every generation),
 # so all runs share the same x-axis and convergence.csv stays small
@@ -322,22 +351,13 @@ def writeCsv(path, rows):
         writer.writeheader()
         writer.writerows(rows)
 
-def gitInfo():
-    """Commit the results were produced with, and whether there were uncommitted changes."""
-    def git(*args):
-        return subprocess.run(["git", *args], cwd=config.ROOT_DIR, capture_output=True, text=True).stdout.strip()
-    return dict(commit=git("rev-parse", "HEAD"), uncommitted_changes=bool(git("status", "--porcelain")))
-
 def writeMetadata(out_dir, **info):
     meta = dict(command="uv run python " + " ".join(sys.argv),
                 created=datetime.now().isoformat(timespec="seconds"),
-                max_evaluations=config.MAX_EVALUATIONS, **info, git=gitInfo(),
+                max_evaluations=config.MAX_EVALUATIONS, **info,
                 versions=dict(python=platform.python_version(), deap=deap.__version__, numpy=np.__version__))
     with open(out_dir / "metadata.json", "w") as f:
         json.dump(meta, f, indent=2)
-    if meta["git"]["uncommitted_changes"]:
-        print("WARNING: uncommitted changes - commit before producing results for the report, "
-              "so metadata.json points to the exact code used.")
 
 def plotConvergence(curves, name, path):
     """Best length vs evaluations per variant: mean over seeds, shaded between min and max."""
@@ -416,7 +436,7 @@ def plotBestTour(name, tour, length, variant, path):
 def runStep(step, names, seed_set, jobs):
     spec = STEPS[step]
     seeds = config.TUNING_SEEDS if seed_set == "tuning" else config.RANDOM_SEEDS[:config.NUM_RUNS]
-    out_dir = config.RESULTS_DIR / (step if seed_set == "tuning" else f"{step}-final")
+    out_dir = config.RESULTS_DIR / (step if seed_set == "tuning" else f"{step}-reporting")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     variants = {v: {**spec["base"], **overrides} for v, overrides in spec["variants"].items()}
@@ -451,7 +471,7 @@ def runStep(step, names, seed_set, jobs):
         plotConvergence(curves, name, out_dir / f"convergence_{name}.png")
     for variant in dict.fromkeys(c["variant"] for c in curves):
         plotControl([c for c in curves if c["variant"] == variant], names, out_dir / f"control_{variant}.png")
-    if seed_set == "final":  # tour plots are only needed for the reported results
+    if seed_set == "reporting":  # tour plots are only needed for the reported results
         for (variant, name), (tour, length) in best_tours.items():
             plotBestTour(name, tour, length, variant, out_dir / f"best_tour_{variant}_{name}.png")
 
@@ -487,7 +507,7 @@ def report(step, out_dir, runs, summary, names):
 
 def reanalyse(step, seed_set):
     """Recompute summary, comparisons and plots from a step's saved CSV files, without re-running the EA."""
-    out_dir = config.RESULTS_DIR / (step if seed_set == "tuning" else f"{step}-final")
+    out_dir = config.RESULTS_DIR / (step if seed_set == "tuning" else f"{step}-reporting")
     with open(out_dir / "runs.csv") as f:
         runs = [{**r, "seed": int(r["seed"]), "length": int(r["length"]), "optimum": int(r["optimum"]),
                  "seconds": float(r["seconds"])} for r in csv.DictReader(f)]
@@ -507,8 +527,8 @@ def main():
     parser.add_argument("step", choices=list(STEPS))
     parser.add_argument("tsp", nargs="*", choices=config.TSP_NAMES,
                         help="one or more of: " + ", ".join(config.TSP_NAMES) + " (default: all)")
-    parser.add_argument("--seeds", choices=["tuning", "final"], default="tuning",
-                        help="tuning: config.TUNING_SEEDS (default); final: config.RANDOM_SEEDS for the report")
+    parser.add_argument("--seeds", choices=["tuning", "reporting"], default="tuning",
+                        help="tuning: config.TUNING_SEEDS (default); reporting: config.RANDOM_SEEDS, for the report")
     parser.add_argument("--jobs", type=int, default=1, help="parallel runs (results do not depend on it)")
     parser.add_argument("--reanalyse", action="store_true",
                         help="recompute comparison.csv from the saved runs.csv instead of running the EA")

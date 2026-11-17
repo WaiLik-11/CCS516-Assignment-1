@@ -35,19 +35,88 @@ CCS516-Assignment-1/
 
 ## Running scripts
 
-Run everything from the repo root. Choose instances by name, or leave them out for all five
-(`berlin52`, `eil101`, `tsp225`, `pcb442`, `pr1002`):
+Run everything from the repo root. No need to activate `.venv` manually; `uv run` uses it
+automatically. Most commands take instance names, or all five (`berlin52`, `eil101`, `tsp225`,
+`pcb442`, `pr1002`) when left out. Add `--help` to any script for its options.
+
+### Questions 1 and 2: optimal tour plots and optimal tour lengths
 
 ```bash
-uv run python DEAP-source-codes/tsp.py                  # optimal tour lengths (+ rounding comparison), plots/
+uv run python DEAP-source-codes/tsp.py                  # all five instances
 uv run python DEAP-source-codes/tsp.py berlin52 eil101  # only these
-uv run python DEAP-source-codes/solve_tsp.py berlin52   # one run of the final EA design (seed 1)
-uv run python DEAP-source-codes/experiments.py step1 --jobs 4            # a design step, tuning seeds
-uv run python DEAP-source-codes/experiments.py step1 --seeds final       # same step, reporting seeds
-uv run python DEAP-source-codes/tsp.py --help
 ```
 
-No need to activate `.venv` manually; `uv run` uses it automatically.
+Writes `plots/<tsp>_opt.png` (Q1) and prints the optimal tour length of each instance (Q2), computed
+with TSPLIB's per-edge rounding, next to the two common mistakes (Python `round()` per edge, rounding
+the total).
+
+### Question 3: the EA design, step by step (tuning seeds 101–105)
+
+Each step compares a few variants of the EA and writes `results/<step>/` (see [Experiments](#experiments)).
+Run them in order; the decision of each step is in the [Step log](#step-log).
+
+```bash
+for step in step1 step2 step3 step4 step4b step5a step5b step6 step6b step7 step7b step9; do
+    uv run python DEAP-source-codes/experiments.py $step --jobs 16
+done
+```
+
+| Step | Question it answers |
+|---|---|
+| `step1` | Baseline: the template's operators, capped at 50,000 evaluations |
+| `step2` | Mutation: swap vs inversion |
+| `step3` | Crossover: OX vs PMX vs UPMX vs ERX vs none |
+| `step4`, `step4b` | Population size (and so the number of generations) |
+| `step5a` | Tournament size (selection pressure) |
+| `step5b` | Crossover and mutation probabilities |
+| `step6`, `step6b` | Parameter control: adaptive pursuit, self-adaptive p_m, uniform mix |
+| `step7`, `step7b` | Verification: re-test earlier choices at the design after step 5 |
+| `step9` | Initialization: random vs nearest-neighbour seeded start (decides the final design) |
+
+About 25 minutes in total with `--jobs 16`; steps 2, 3 and 7 are the slowest (ERX). Set `--jobs` to
+the number of CPU cores; it does not change the results. To run a single step, run its line on its own.
+
+### Question 3: final results (reporting seeds 1–5)
+
+```bash
+uv run python DEAP-source-codes/experiments.py step9 --seeds reporting --jobs 16
+```
+
+Runs every step 9 variant 5 times per instance on the reporting seeds and writes
+`results/step9-reporting/`. **The final design is the `nn-50-fixed` variant**: its rows in
+`summary.csv` hold the reported best / average / worst / std and the deviation % of the average from
+the optimum, `best_tour_nn-50-fixed_<tsp>.png` holds its best tour per instance, and
+`comparison.csv` compares it with random initialization and with the original template (`template`)
+on the same seeds.
+
+Step 8 is an intermediate check, not the final results: it runs the design chosen before heuristic
+initialization (random start) on the reporting seeds, to confirm the inversion and parameter-control
+decisions on fresh seeds:
+
+```bash
+uv run python DEAP-source-codes/experiments.py step8 --seeds reporting --jobs 16
+```
+
+To run the final EA once (reporting seed 1) and watch its progress:
+
+```bash
+uv run python DEAP-source-codes/solve_tsp.py berlin52
+```
+
+### Checking a re-run
+
+Runs are deterministic, so a re-run must give the same tour lengths as the committed results; only
+the timings change. Compare the first 8 columns of every `runs.csv` against the last commit:
+
+```bash
+for f in results/*/runs.csv; do
+    if diff -q <(git show HEAD:"$f" | cut -d, -f1-8) <(cut -d, -f1-8 "$f") > /dev/null; then
+        echo "identical  $f"
+    else
+        echo "CHANGED    $f"
+    fi
+done
+```
 
 ## Experiments
 
@@ -56,13 +125,12 @@ variants that each change **one** component. `experiments.py <step>` runs every 
 selected TSP with every seed, each run with exactly 50,000 fitness evaluations, and writes
 `results/<step>/`:
 
-- `metadata.json`: full parameters per variant, seeds, budget, command, git commit, library versions
+- `metadata.json`: full parameters per variant, seeds, budget, command, library versions
 - `runs.csv` (one row per run), `summary.csv` (best/mean/worst/std, deviation % of the mean)
 - `convergence.csv` (best length so far every 500 evaluations, per run) and `convergence_<tsp>.png`
-- `best_tour_<variant>_<tsp>.png`, only with `--seeds final`
+- `best_tour_<variant>_<tsp>.png`, only with `--seeds reporting`
 
-Results do not depend on `--jobs`: each run seeds `random`/`numpy` itself. Commit your code before
-producing results for the report, so the commit in `metadata.json` is the code that was used.
+Results do not depend on `--jobs`: each run seeds `random`/`numpy` itself.
 
 Comparisons (`comparison.csv`): wins per instance, and a Wilcoxon signed-rank test on the paired log length
 ratios pooled over all instances. `--reanalyse` recomputes them from a step's saved `runs.csv`.
@@ -88,7 +156,8 @@ same measure as the known optima. Deviation % = (mean − optimum) / optimum × 
 | 6b | Pursuit learning rates {0.8, 0.3, 0.1, 0.03} + uniform mix (beta = 0, no learning) | tuned, ap-*, uniform-mix | ap-0.1 best vs tuned (−2.76%, p = 0.012) but uniform mix also helps (−1.41%, p = 0.039) and no pursuit variant beats uniform mix (best p = 0.28): the gain is from mixing settings, not learning. Not significant after Bonferroni (5 comparisons). **Candidates for the final runs: tuned, uniform-mix, ap-0.1** |
 | 7 | Verification at the final design (mu = 50): inversion, PMX, UPMX, ERX, no crossover | tuned, inversion, pmx, upmx-0.1, erx, no-crossover | **Order effect: inversion now significantly better than swap** (−4.9%, p = 0.011; swap had won at mu = 300). OX confirmed (all alternatives significantly worse) |
 | 7b | With inversion: p_m in {0.05, 0.1, 0.2, 0.5}, uniform mix, pursuit 0.1 | inv-* | p_m 0.1 kept; uniform mix again better than fixed (−1.85%, p = 0.022); pursuit not better than uniform mix (p = 0.67). **Final design: OX, inversion, k 2, mu 50, uniform mix of (p_c, p_m)** (decision rule fixed before step 8) |
-| 8 | Final runs, reporting seeds 1–5 (`--seeds final`) | final, inv-fixed, swap-fixed, template, per-instance | Confirmed: final vs fixed −2.0% (p = 0.045), vs swap design −5.5% (p = 0.0015), vs template −35.5% (25/25). Per-instance tuning no better (p = 0.85). Deviation %: berlin52 8.80, eil101 20.06, tsp225 139.37, pcb442 382.26, pr1002 948.83 |
+| 8 | Check of the random-start design on the reporting seeds 1–5 (`--seeds reporting`) | random-start, inv-fixed, swap-fixed, template, per-instance | Confirmed: random-start vs fixed −2.0% (p = 0.045), vs swap design −5.5% (p = 0.0015), vs template −35.5% (25/25). Per-instance tuning no better (p = 0.85). Deviation % (random start, superseded by step 9): berlin52 8.80, eil101 20.06, tsp225 139.37, pcb442 382.26, pr1002 948.83 |
+| 9 | Initialization: 0, 1, 5, 15 or 50 of the 50 initial tours by nearest neighbour (distinct random starts); fixed vs mixed probabilities | random, nn-1, nn-5, nn-15, nn-50, nn-5-fixed, nn-50-fixed | Largest effect of the study: seeding gives 58–60% shorter tours (p < 1e-6); 50 NN better than 5 (p = 0.0004); mixing no longer helps (p = 0.26). **Final design: nn-50-fixed** (OX p_c 0.9, inversion p_m 0.1, k 2, mu 50, 5 elites, all-NN start). Reporting seeds (`step9-reporting`, final results): berlin52 1.79, eil101 5.88, tsp225 13.45, pcb442 16.38, pr1002 20.75 deviation %; 73.9% shorter tours than the template (25/25). On pcb442/pr1002 the EA improves its best starting tour by < 1% |
 
 Step 1, tuning seeds 101–105 (OX p_c = 0.9, swap mutation p_m = 0.1, tournament 2, μ = 300, 30 elites, random initialization):
 

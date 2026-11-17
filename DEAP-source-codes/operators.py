@@ -70,3 +70,23 @@ def cxEdgeRecombination(ind1, ind2):
     for i in range(len(ind1)):
         ind1[i], ind2[i] = child1[i], child2[i]
     return ind1, ind2
+
+
+def nearestNeighbourTour(distances, start):
+    """Greedy nearest-neighbour tour (heuristic initialization, e.g. Grefenstette, 1987): from
+    `start`, always move to the closest unvisited city (ties: lowest index).
+
+    `distances` is the (integer) distance matrix as a NumPy array. Building the tour reads the
+    distance matrix but evaluates no tour, so it costs no fitness evaluations.
+    """
+    import numpy as np
+    n = len(distances)
+    visited = np.zeros(n, dtype=bool)
+    tour = [start]
+    visited[start] = True
+    for _ in range(n - 1):
+        row = np.where(visited, np.iinfo(np.int64).max, distances[tour[-1]])
+        nxt = int(np.argmin(row))
+        tour.append(nxt)
+        visited[nxt] = True
+    return tour

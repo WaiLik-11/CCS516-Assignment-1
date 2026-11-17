@@ -1,6 +1,6 @@
 {
   "command": "uv run python DEAP-source-codes/experiments.py step3 --jobs 16",
-  "created": "2026-11-17T22:02:49",
+  "created": "2026-11-18T00:04:31",
   "max_evaluations": 50000,
   "step": "step3",
   "description": "Crossover operator: OX vs PMX vs UPMX vs ERX vs no crossover (swap mutation, p_m = 0.1)",
@@ -35,7 +35,14 @@
       "crossover_indpb": null,
       "mutation": "swap",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "pmx": {
       "population_size": 300,
@@ -46,7 +53,14 @@
       "crossover_indpb": null,
       "mutation": "swap",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "upmx-0.1": {
       "population_size": 300,
@@ -57,7 +71,14 @@
       "crossover_indpb": 0.1,
       "mutation": "swap",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "upmx-0.5": {
       "population_size": 300,
@@ -68,7 +89,14 @@
       "crossover_indpb": 0.5,
       "mutation": "swap",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "erx": {
       "population_size": 300,
@@ -79,7 +107,14 @@
       "crossover_indpb": null,
       "mutation": "swap",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     },
     "no-crossover": {
       "population_size": 300,
@@ -90,12 +125,15 @@
       "crossover_indpb": null,
       "mutation": "swap",
       "p_mutation": 0.1,
-      "mutation_indpb": null
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
     }
-  },
-  "git": {
-    "commit": "484074b633ef517789af0af2535201ca2b920a54",
-    "uncommitted_changes": true
   },
   "versions": {
     "python": "3.12.4",

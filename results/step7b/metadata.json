@@ -1,6 +1,6 @@
 {
   "command": "uv run python DEAP-source-codes/experiments.py step7b --jobs 16",
-  "created": "2026-11-17T23:06:03",
+  "created": "2026-11-18T00:18:48",
   "max_evaluations": 50000,
   "step": "step7b",
   "description": "Verification round 2: with inversion mutation, re-check p_m and the parameter controllers",
@@ -36,6 +36,7 @@
       "mutation": "inversion",
       "p_mutation": 0.1,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": null,
       "ap_arms": null,
       "ap_alpha": 0.8,
@@ -53,6 +54,7 @@
       "mutation": "inversion",
       "p_mutation": 0.05,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": null,
       "ap_arms": null,
       "ap_alpha": 0.8,
@@ -70,6 +72,7 @@
       "mutation": "inversion",
       "p_mutation": 0.2,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": null,
       "ap_arms": null,
       "ap_alpha": 0.8,
@@ -87,6 +90,7 @@
       "mutation": "inversion",
       "p_mutation": 0.5,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": null,
       "ap_arms": null,
       "ap_alpha": 0.8,
@@ -104,6 +108,7 @@
       "mutation": "inversion",
       "p_mutation": 0.1,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": "adaptive-pursuit",
       "ap_arms": [
         [
@@ -134,6 +139,7 @@
       "mutation": "inversion",
       "p_mutation": 0.1,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": "adaptive-pursuit",
       "ap_arms": [
         [
@@ -154,10 +160,6 @@
       "ap_p_min": 0.1,
       "sa_gamma": 0.22
     }
-  },
-  "git": {
-    "commit": "484074b633ef517789af0af2535201ca2b920a54",
-    "uncommitted_changes": true
   },
   "versions": {
     "python": "3.12.4",

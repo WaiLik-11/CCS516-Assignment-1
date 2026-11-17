@@ -1,6 +1,6 @@
 {
   "command": "uv run python DEAP-source-codes/experiments.py step6b --jobs 16",
-  "created": "2026-11-17T22:48:26",
+  "created": "2026-11-18T00:15:24",
   "max_evaluations": 50000,
   "step": "step6b",
   "description": "Adaptive pursuit learning rates alpha = beta in {0.8 (step 6), 0.3, 0.1, 0.03}, and uniform random mixing of the arms (no learning)",
@@ -36,6 +36,7 @@
       "mutation": "swap",
       "p_mutation": 0.1,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": null,
       "ap_arms": [
         [
@@ -66,6 +67,7 @@
       "mutation": "swap",
       "p_mutation": 0.1,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": "adaptive-pursuit",
       "ap_arms": [
         [
@@ -96,6 +98,7 @@
       "mutation": "swap",
       "p_mutation": 0.1,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": "adaptive-pursuit",
       "ap_arms": [
         [
@@ -126,6 +129,7 @@
       "mutation": "swap",
       "p_mutation": 0.1,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": "adaptive-pursuit",
       "ap_arms": [
         [
@@ -156,6 +160,7 @@
       "mutation": "swap",
       "p_mutation": 0.1,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": "adaptive-pursuit",
       "ap_arms": [
         [
@@ -186,6 +191,7 @@
       "mutation": "swap",
       "p_mutation": 0.1,
       "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
       "control": "adaptive-pursuit",
       "ap_arms": [
         [
@@ -206,10 +212,6 @@
       "ap_p_min": 0.1,
       "sa_gamma": 0.22
     }
-  },
-  "git": {
-    "commit": "484074b633ef517789af0af2535201ca2b920a54",
-    "uncommitted_changes": true
   },
   "versions": {
     "python": "3.12.4",
