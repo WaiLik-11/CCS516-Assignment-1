@@ -24,11 +24,13 @@ CCS516-Assignment-1/
 ├── DEAP-source-codes/
 │   ├── config.py                     # shared paths + experiment settings (edit here, not in scripts)
 │   ├── tsp.py                        # TSP class: load data, tour length, plot optimal tours
-│   ├── solve_tsp.py                  # the EA (DEAP toolbox, operators, 5 seeded runs per TSP)
-│   └── elitism.py                    # eaSimple with elitism + 50,000-evaluation budget
+│   ├── solve_tsp.py                  # the EA: DEAP toolbox built from a parameter dict, one seeded run
+│   ├── elitism.py                    # eaSimple with elitism + 50,000-evaluation budget
+│   ├── operators.py                  # operators DEAP lacks: edge recombination crossover (ERX)
+│   └── experiments.py                # reproducible experiment runner, one entry per design step
 ├── tsp-data/                         # .tsp city coordinates and .opt.tour optimal tours
 ├── plots/                            # generated optimal-tour PNGs
-└── results/                          # generated experiment results (git-ignored)
+└── results/                          # experiment results, one folder per design step
 ```
 
 ## Running scripts
@@ -37,63 +39,66 @@ Run everything from the repo root. Choose instances by name, or leave them out f
 (`berlin52`, `eil101`, `tsp225`, `pcb442`, `pr1002`):
 
 ```bash
-uv run python DEAP-source-codes/tsp.py                  # plot all optimal tours into plots/
+uv run python DEAP-source-codes/tsp.py                  # optimal tour lengths (+ rounding comparison), plots/
 uv run python DEAP-source-codes/tsp.py berlin52 eil101  # only these
-uv run python DEAP-source-codes/solve_tsp.py            # EA: 5 runs on each of the 5 TSPs (~2 min)
-uv run python DEAP-source-codes/solve_tsp.py berlin52   # EA on one problem only
+uv run python DEAP-source-codes/solve_tsp.py berlin52   # one run of the final EA design (seed 1)
+uv run python DEAP-source-codes/experiments.py step1 --jobs 4            # a design step, tuning seeds
+uv run python DEAP-source-codes/experiments.py step1 --seeds final       # same step, reporting seeds
 uv run python DEAP-source-codes/tsp.py --help
 ```
 
 No need to activate `.venv` manually; `uv run` uses it automatically.
 
-`solve_tsp.py` writes to `results/`: `<tsp>_runs.csv` (one row per run), `summary.csv`
-(best/average/worst/std/deviation per TSP), `<tsp>_best_tour.png` and `<tsp>_convergence.png`.
+## Experiments
 
-## EA design
+Every design step is an entry in `STEPS` in `experiments.py`: a base parameter dict and a few
+variants that each change **one** component. `experiments.py <step>` runs every variant on every
+selected TSP with every seed, each run with exactly 50,000 fitness evaluations, and writes
+`results/<step>/`:
 
-All parameters are constants at the top of `solve_tsp.py`; budget, runs and seeds come from `config.py`.
+- `metadata.json`: full parameters per variant, seeds, budget, command, git commit, library versions
+- `runs.csv` (one row per run), `summary.csv` (best/mean/worst/std, deviation % of the mean)
+- `convergence.csv` (best length so far every 500 evaluations, per run) and `convergence_<tsp>.png`
+- `best_tour_<variant>_<tsp>.png`, only with `--seeds final`
 
-| Component | Choice | Justification |
-|---|---|---|
-| Representation | Permutation of city indices (`array('i')`) | Every permutation is a valid tour, so no repair is needed (given by the assignment) |
-| Fitness | `getTotalDistance` (float), minimised | Given objective. Reported lengths use `getTotalDistanceRounded` (TSPLIB rounding), the same convention as the optimum |
-| Initialization | 10% nearest-neighbour tours from distinct random start cities, 90% random permutations | A purely random start wastes the budget: random init ended 28% (eil101), 418% (pcb442) and 1024% (pr1002) above optimum, against 5–12% with NN seeding. NN tours start at 19–32% above optimum, while the random 90% keeps diversity for crossover (30% NN was worse, 100% NN about equal). NN uses the distance matrix only and costs no fitness evaluations |
-| Population model | Generational, μ = 50, with elitism: each generation = 2 elites + 48 offspring | Averaged over the 5 TSPs, μ = 50 beat 30 and 100 (and 200 in round 1). Smaller populations get more generations out of the fixed budget (~1,390 generations per run) |
-| Parent selection | Tournament, size 5 (`tools.selTournament`) | Size 2 was clearly worse (pcb442 round 1: 16.8% vs 4.4% with size 5). Size 5 also beat 3 and 7 on average over the 5 TSPs |
-| Crossover | Order crossover OX (`tools.cxOrdered`), p_c = 0.5 per pair | OX keeps a segment of one parent and the relative order of the other, which preserves adjacency (edges). OX beat PMX on all 5 instances. p_c = 0.5 beat 0, 0.2 and 0.8 on average |
-| Mutation | Neighbour-guided inversion (`mutInversion`, custom: DEAP has no inversion), p_m = 0.5 per offspring | A 2-opt move (only 2 edges change): a random city is reconnected to one of its k = 5 nearest cities by reversing the segment in between. It reuses the inversion step of Inver-over (Tao & Michalewicz 1998) but is **not** Inver-over: the target city comes from a nearest-neighbour list, not from another individual, and there is no accept-if-better test. See the per-instance comparison below. p_m = 0.5 beat 0.3 and 0.8 on average |
-| Survivor selection | Offspring replace parents; the 2 best ever (`tools.HallOfFame`) survive unchanged | Elitism guarantees that the best tour is never lost. A small elite keeps selection pressure on offspring |
-| Termination | Exactly 50,000 fitness evaluations (`MAX_EVALUATIONS`) | Counted explicitly in `elitism.py`, including the initial population. Unchanged clones are not re-evaluated, so they cost nothing. The final generation is trimmed so the budget is never exceeded |
-| Seeds | Run *i* uses `RANDOM_SEEDS[i]` = 1…5 (seeds both `random` and `numpy`) | Runs are reproducible; the seed is stored in `<tsp>_runs.csv` |
+Results do not depend on `--jobs`: each run seeds `random`/`numpy` itself. Commit your code before
+producing results for the report, so the commit in `metadata.json` is the code that was used.
 
-**Tuning.** Parameters were tuned one factor at a time with tuning seeds 101–103, kept separate from the
-reporting seeds 1–5 so the reported numbers are not tuned on their own seeds. Each variant ran 3 times with the
-full 50,000-evaluation budget. Round 1 (eil101, pcb442, pr1002) compared initialization, guided vs random
-inversion and the population size. Round 2 (all 5 TSPs) varied each parameter around the final setting.
+Comparisons (`comparison.csv`): wins per instance, and a Wilcoxon signed-rank test on the paired log length
+ratios pooled over all instances. `--reanalyse` recomputes them from a step's saved `runs.csv`.
 
-**Is the mutation suitable for all five TSPs?** Average deviation over tuning seeds 101–103 (round 2 setting, only the mutation changed):
+Seeds: `TUNING_SEEDS` (101–105) for all comparisons, `RANDOM_SEEDS` (1–5) only for the final
+reported results, so the reported numbers are not tuned on their own seeds.
 
-| Mutation | berlin52 | eil101 | tsp225 | pcb442 | pr1002 |
-|---|---|---|---|---|---|
-| Swap (`tools.mutShuffleIndexes`) | 10.21% | 14.20% | 22.80% | 16.98% | 22.29% |
-| Random inversion | 5.07% | 5.99% | 9.78% | 12.95% | 19.88% |
-| Guided inversion, k = 3 | 5.11% | 10.02% | 9.63% | 8.77% | 13.90% |
-| **Guided inversion, k = 5 (used)** | **2.07%** | 6.25% | **6.89%** | **4.81%** | **9.89%** |
-| Guided inversion, k = 8 | 4.12% | 5.56% | 7.57% | 5.07% | 8.82% |
+Fitness is the TSPLIB EUC_2D tour length (each edge rounded with `nint(x) = (int)(x + 0.5)`), the
+same measure as the known optima. Deviation % = (mean − optimum) / optimum × 100.
 
-k = 5 is best or near-best on 4 of 5 instances and always far better than swap. On eil101 random inversion and k = 8 are slightly better, and k = 8 is best on pr1002, but with only 3 seeds these gaps are within noise. k = 3 is clearly too restrictive. The weak point is instance size: with a fixed 50,000 evaluations the EA reaches only 9.9–11.6% on pr1002 whatever the mutation, so it is not "suitable" in the sense of reaching near-optimal tours there.
+### Step log
 
-For comparison, a true Inver-over (μ = 50, p = 0.02, one evaluation per child, accept if no worse, same initialization) was also tested on seeds 101–103: berlin52 1.13%, eil101 9.22%, tsp225 20.26%, pcb442 19.08%, pr1002 22.30%. It is better only on berlin52. Its roughly 1,000 generations are too few on the larger instances, so it was not adopted.
+| Step | Question | Variants | Decision |
+|---|---|---|---|
+| 1 | Baseline: original template operators, capped at 50,000 evaluations | baseline | Reference for step 2 (results below) |
+| 2 | Mutation: swap vs inversion (at p_m 0.1 and 0.5, and with ERX as an early order check) | swap, inversion, swap-pm0.5, inversion-pm0.5, swap-erx, inversion-erx | No significant difference between swap and inversion in any setting (swap significantly better in the baseline setting, p = 0.026; p = 0.29 and 0.87 in the others), and the winner changes with the setting. p_m 0.5 is worse than 0.1 for both. **Keep swap, p_m 0.1** (no evidence to change); revisit mutation in the verification step. ERX gave the largest gain, so crossover is step 3 |
+| 3 | Crossover: OX vs PMX vs UPMX (indpb 0.1, 0.5) vs ERX vs none | ox, pmx, upmx-0.1, upmx-0.5, erx, no-crossover | PMX and UPMX are significantly worse than OX (0–1/25 wins, p < 1e-6): drop them. ERX beats OX on 4/5 instances (all seeds) but loses on pr1002 (pooled: 9.6% shorter tours, p = 0.0004). No crossover is best on the 3 largest instances, but only because its unchanged offspring are free: it gets 1842 generations vs 203. **Keep OX and ERX (no crossover as control); decide in step 4 together with the population size** |
+| 4 | Population size x crossover: mu in {300, 100, 50} (elites 10%), crossover in {OX, ERX, none} | ox/erx/none-300, -100, -50 | Smaller mu is the biggest gain so far (OX mu 50 vs 300: 22/25 wins, p = 1.5e-6). ERX is significantly worse than OX at mu 100 and 50 (2–3/25 wins): it collapses small populations. OX beats no crossover on 4/5 instances at mu 50 (p = 0.0006, pr1002 the exception) |
+| 4b | Extend mu below 50 (best value was at the edge): OX, mu in {50, 30, 20, 10} | ox-50, ox-30, ox-20, ox-10 | mu 50 best on 4/5 instances; mu 30 only better on pr1002 (not significant overall, p = 0.16); mu ≤ 20 clearly worse. **Use OX, mu = 50, 5 elites**; drop ERX |
+| 5a | Tournament size k in {1, 2, 3, 5, 7} | k1, k2, k3, k5, k7 | k = 2 significantly better than all others (k3: +8.9% longer tours, p = 0.0006; k1 random parents: +67%). **Keep k = 2** |
+| 5b | p_c in {0.6, 0.9, 1.0} x p_m in {0.05, 0.1, 0.2} | pc*-pm* | No setting significantly different overall (all p ≥ 0.096): small instances prefer more variation (p_c 1.0, p_m 0.2), pr1002 less (p_c 0.6, p_m 0.05, 5/5 wins). **Keep p_c 0.9, p_m 0.1**; motivates parameter control |
+| 6 | Parameter control vs tuned: adaptive pursuit over (p_c, p_m) in {(0.6, 0.05), (0.9, 0.1), (1.0, 0.2)}; self-adaptive p_m | tuned, adaptive-pursuit, self-adaptive-pm | Neither significant overall (pursuit −1.0%, p = 0.30; self-adaptive +1.6%, p = 0.28). Self-adaptive p_m helps berlin52/eil101 (5/5) but hurts pcb442/pr1002 (0/5): p_m rises on every instance, so it cannot learn pr1002's preference for less variation. Pursuit probabilities oscillate |
+| 6b | Pursuit learning rates {0.8, 0.3, 0.1, 0.03} + uniform mix (beta = 0, no learning) | tuned, ap-*, uniform-mix | ap-0.1 best vs tuned (−2.76%, p = 0.012) but uniform mix also helps (−1.41%, p = 0.039) and no pursuit variant beats uniform mix (best p = 0.28): the gain is from mixing settings, not learning. Not significant after Bonferroni (5 comparisons). **Candidates for the final runs: tuned, uniform-mix, ap-0.1** |
+| 7 | Verification at the final design (mu = 50): inversion, PMX, UPMX, ERX, no crossover | tuned, inversion, pmx, upmx-0.1, erx, no-crossover | **Order effect: inversion now significantly better than swap** (−4.9%, p = 0.011; swap had won at mu = 300). OX confirmed (all alternatives significantly worse) |
+| 7b | With inversion: p_m in {0.05, 0.1, 0.2, 0.5}, uniform mix, pursuit 0.1 | inv-* | p_m 0.1 kept; uniform mix again better than fixed (−1.85%, p = 0.022); pursuit not better than uniform mix (p = 0.67). **Final design: OX, inversion, k 2, mu 50, uniform mix of (p_c, p_m)** (decision rule fixed before step 8) |
+| 8 | Final runs, reporting seeds 1–5 (`--seeds final`) | final, inv-fixed, swap-fixed, template, per-instance | Confirmed: final vs fixed −2.0% (p = 0.045), vs swap design −5.5% (p = 0.0015), vs template −35.5% (25/25). Per-instance tuning no better (p = 0.85). Deviation %: berlin52 8.80, eil101 20.06, tsp225 139.37, pcb442 382.26, pr1002 948.83 |
 
-**Results** (seeds 1–5, 50,000 evaluations each; deviation % = (average − optimum) / optimum, rounded lengths):
+Step 1, tuning seeds 101–105 (OX p_c = 0.9, swap mutation p_m = 0.1, tournament 2, μ = 300, 30 elites, random initialization):
 
-| TSP | Optimum | Best | Average | Worst | Std | Deviation % |
+| TSP | Optimum | Best | Mean | Worst | Std | Deviation % |
 |---|---|---|---|---|---|---|
-| berlin52 | 7542 | 7542 | 7898.4 | 8172 | 304.9 | 4.73 |
-| eil101 | 629 | 645 | 663.2 | 684 | 14.9 | 5.44 |
-| tsp225 | 3916 | 4121 | 4166.0 | 4220 | 41.0 | 6.38 |
-| pcb442 | 50778 | 53065 | 53846.6 | 54820 | 725.8 | 6.04 |
-| pr1002 | 259045 | 284088 | 288971.6 | 294741 | 3876.2 | 11.55 |
+| berlin52 | 7542 | 8460 | 8659.8 | 9022 | 243.0 | 14.82 |
+| eil101 | 629 | 1069 | 1155.4 | 1259 | 77.8 | 83.69 |
+| tsp225 | 3916 | 17607 | 18023.6 | 18291 | 281.0 | 360.26 |
+| pcb442 | 50778 | 414058 | 429289.6 | 436732 | 9275.6 | 745.42 |
+| pr1002 | 259045 | 4111551 | 4163176 | 4224493 | 44063.5 | 1507.12 |
 
 ## Conventions
 

@@ -171,18 +171,27 @@ class TravelingSalesmanProblem:
 # testing the class:
 def main():
     config.PLOTS_DIR.mkdir(exist_ok=True)
+
+    # optimal tour length with the TSPLIB rounding, compared with two common mistakes
+    print(f"{'TSP':<10}{'cities':>7}{'TSP-BEST':>10}{'TSPLIB nint':>13}{'round()/edge':>14}"
+          f"{'round(total)':>14}{'unrounded':>12}{'x.5 edges':>11}")
     for name in config.parse_tsp_names("Plot optimal tours"):
         tsp = TravelingSalesmanProblem(name)
         tour = tsp.loadTour()
         assert sorted(tour) == list(range(len(tsp))), "tour must be a valid permutation"
-        print(
-            f"{name}: {len(tsp)} cities, "
-            f"length = {tsp.getTotalDistance(tour):.2f}, "
-            f"optimal (TSPLIB, rounded) = {tsp.getTotalDistanceRounded(tour)}"
-        )
+
+        n = len(tour)
+        edges = [tsp.distances[tour[i]][tour[(i + 1) % n]] for i in range(n)]
+        length = tsp.getTotalDistanceRounded(tour)  # (int)(d + 0.5) per edge, as in TSPLIB
+        assert length == config.KNOWN_OPTIMA[name], "must equal the known optimum"
+        print(f"{name:<10}{n:>7}{config.KNOWN_OPTIMA[name]:>10}{length:>13}"
+              f"{sum(round(e) for e in edges):>14}"           # Python round(): halves to even
+              f"{round(sum(edges)):>14}"                      # rounding the total instead of each edge
+              f"{sum(edges):>12.2f}"
+              f"{sum(1 for e in edges if abs(e % 1 - 0.5) < 1e-9):>11}")
 
         plot = tsp.plotData(tour)
-        plot.title(f"{name} optimal tour")
+        plot.title(f"{name} optimal tour (length {length})")
         plot.savefig(config.PLOTS_DIR / f"{name}_opt.png", dpi=150)
         plot.close()
 
