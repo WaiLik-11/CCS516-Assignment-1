@@ -48,8 +48,10 @@ class TravelingSalesmanProblem:
 
         # attempt to read serialized data:
         try:
-            self.locations = pickle.load(open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "rb"))
-            self.distances = pickle.load(open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "rb"))
+            with open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "rb") as f:
+                self.locations = pickle.load(f)
+            with open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "rb") as f:
+                self.distances = pickle.load(f)
         except (OSError, IOError):
             pass
 
@@ -59,6 +61,11 @@ class TravelingSalesmanProblem:
 
         # set the problem 'size':
         self.tspSize = len(self.locations)
+
+        # TSPLIB EUC_2D distances: dij = nint(sqrt(xd*xd + yd*yd)), nint(x) = (int)(x + 0.5) as in C.
+        # Python's round() would be wrong here: it rounds halves to even (round(28.5) == 28).
+        # astype() truncates like a C cast, which is correct because distances are >= 0.
+        self.distancesRounded = (np.asarray(self.distances) + 0.5).astype(np.int64)
 
     def __createData(self):
         """Reads the desired TSP file from the Internet, extracts the city coordinates, calculates the distances
@@ -99,8 +106,10 @@ class TravelingSalesmanProblem:
                     self.distances[j][i] = distance
 
             # serialize locations and distances:
-            pickle.dump(self.locations, open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "wb"))
-            pickle.dump(self.distances, open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "wb"))
+            with open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "wb") as f:
+                pickle.dump(self.locations, f)
+            with open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "wb") as f:
+                pickle.dump(self.distances, f)
 
     def getTotalDistance(self, indices):
         """Calculates the total distance of the path described by the given indices of the cities
@@ -118,12 +127,12 @@ class TravelingSalesmanProblem:
         return distance
 
     def getTotalDistanceRounded(self, indices):
-        """TSPLIB EUC_2D length: round each edge to the nearest integer, then sum."""
-        total = 0
-        for i in range(len(indices)):
-            a, b = indices[i], indices[(i+1) % len(indices)]
-            total += int(self.distances[a][b] + 0.5)
-        return total
+        """TSPLIB EUC_2D length: round each edge to the nearest integer, then sum.
+
+        Used as the EA fitness, so the EA optimises the same quantity as the known optima.
+        """
+        tour = np.asarray(indices)
+        return int(self.distancesRounded[tour, np.roll(tour, -1)].sum())
 
     def plotData(self, indices):
         """plots the path described by the given indices of the cities
