@@ -1,21 +1,16 @@
-"""Evolutionary algorithm for the TSP (DEAP).
+"""Evolutionary algorithm for the TSP, built only from DEAP operators.
 
-Runs NUM_RUNS independent runs (one seed from config.RANDOM_SEEDS each, max
-config.MAX_EVALUATIONS fitness evaluations) on each selected TSP, and reports the
-rounded tour lengths and the deviation of the average from the optimum.
-The design choices and their justification are in the "EA design" section of README.md.
+An EA variant is described by a parameter dict (see BASELINE). buildToolbox() turns it into
+a DEAP toolbox and runEA() performs one seeded run with a budget of config.MAX_EVALUATIONS
+fitness evaluations. Experiments (several variants x TSPs x seeds) are run by experiments.py.
+
+Running this file directly does a single demo run:
+    uv run python DEAP-source-codes/solve_tsp.py berlin52
 """
 
 import array
-import csv
 import random
-import statistics
-
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")  # save figures to files; no blocking GUI windows
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from deap import base
 from deap import creator
@@ -23,19 +18,55 @@ from deap import tools
 
 import config
 import elitism
-import tsp
+import operators
+from tsp import TravelingSalesmanProblem
 
-# EA parameters (tuned on seeds 101-103, see README "EA design")
-POPULATION_SIZE = 50     # mu: parents per generation
-ELITE_SIZE = 2           # hall-of-fame individuals copied unchanged into each generation
-TOURNAMENT_SIZE = 5      # parent selection
-CROSSOVER = "ox"         # "ox" (tools.cxOrdered) or "pmx" (tools.cxPartialyMatched)
-P_CROSSOVER = 0.5        # probability that a pair of parents is recombined
-MUTATION = "inversion"   # "inversion" (mutInversion) or "swap" (tools.mutShuffleIndexes)
-P_MUTATION = 0.5         # probability that an offspring is mutated
-NEIGHBOURS = 5           # k for guided inversion (0 = uniformly random inversion)
-NN_FRACTION = 0.1        # share of the initial population built by nearest-neighbour
+# Step 1 baseline: the operators and parameters of the original template solve_tsp.py,
+# only capped at MAX_EVALUATIONS instead of MAX_GENERATIONS = 200.
+BASELINE = dict(
+    population_size=300,   # POPULATION_SIZE
+    elite_size=30,         # HALL_OF_FAME_SIZE: best individuals copied unchanged each generation
+    tournament_size=2,     # tools.selTournament(tournsize=2)
+    crossover="ox",        # tools.cxOrdered
+    p_crossover=0.9,       # P_CROSSOVER: probability that a pair of parents is recombined
+    crossover_indpb=None,  # only used by "upmx"
+    mutation="swap",       # tools.mutShuffleIndexes
+    p_mutation=0.1,        # P_MUTATION: probability that an offspring is mutated
+    mutation_indpb=None,   # per-position swap probability for "swap"; None = 1/n (as in the template)
+    # parameter control (step 6): None = fixed p_crossover / p_mutation
+    control=None,          # None, "adaptive-pursuit" or "self-adaptive-pm"
+    ap_arms=None,          # adaptive pursuit: list of (p_crossover, p_mutation) settings to choose from
+    ap_alpha=0.8,          # adaptive pursuit: learning rate of the quality estimates
+    ap_beta=0.8,           # adaptive pursuit: learning rate of the probabilities
+    ap_p_min=0.1,          # adaptive pursuit: minimum probability of each arm
+    sa_gamma=0.22,         # self-adaptive p_mutation: learning rate of the log-normal step
+)
 
+# Final design, chosen step by step in experiments.py (see README "Step log" and the report):
+# OX crossover, inversion mutation, tournament size 2, mu = 50 with 5 elites, and each generation one of
+# three (p_crossover, p_mutation) settings drawn uniformly at random ("uniform mix": adaptive pursuit
+# with beta = 0, so the arm probabilities stay at 1/3).
+FINAL_DESIGN = {
+    **BASELINE,
+    "population_size": 50,
+    "elite_size": 5,
+    "mutation": "inversion",
+    "control": "adaptive-pursuit",
+    "ap_arms": [(0.6, 0.05), (0.9, 0.1), (1.0, 0.2)],
+    "ap_beta": 0.0,
+}
+
+# Operators that keep a permutation valid (all from DEAP, except ERX from operators.py)
+CROSSOVERS = {
+    "ox": tools.cxOrdered,                    # Davis (1985)
+    "pmx": tools.cxPartialyMatched,           # Goldberg & Lingle (1985)
+    "upmx": tools.cxUniformPartialyMatched,   # Cicirello & Smith (2000)
+    "erx": operators.cxEdgeRecombination,     # Whitley, Starkweather & Fuquay (1989)
+}
+MUTATIONS = {
+    "swap": tools.mutShuffleIndexes,          # swap mutation
+    "inversion": tools.mutInversion,          # inversion mutation (reverses one segment)
+}
 
 # define a single objective, minimizing fitness strategy:
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -43,185 +74,130 @@ creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
 # create the Individual class based on list of integers:
 creator.create("Individual", array.array, typecode='i', fitness=creator.FitnessMin)
 
-
-def nearestNeighbourTour(problem, start):
-    """Greedy tour: from `start`, always go to the closest unvisited city."""
-    unvisited = set(range(len(problem)))
-    unvisited.remove(start)
-    tour = [start]
-    while unvisited:
-        row = problem.distances[tour[-1]]
-        nxt = min(unvisited, key=row.__getitem__)
-        unvisited.remove(nxt)
-        tour.append(nxt)
-    return tour
+def edgeDiversity(population):
+    """Distinct (undirected) edges in the population per city: 1.0 when all individuals are the
+    same tour, up to the population size when no two individuals share an edge."""
+    tours = np.asarray(population)
+    a, b = tours, np.roll(tours, -1, axis=1)
+    n = tours.shape[1]
+    edges = np.minimum(a, b) * n + np.maximum(a, b)
+    return np.unique(edges).size / n
 
 
-def nearestNeighbourLists(problem, k):
-    """For every city, the indices of its k closest other cities."""
-    dist = np.asarray(problem.distances)
-    return np.argsort(dist, axis=1)[:, 1:k + 1].tolist()
+class PopulationStatistics(tools.Statistics):
+    """DEAP Statistics on the fitness values, plus the edge diversity of the whole population."""
+
+    def __init__(self):
+        super().__init__(lambda ind: ind.fitness.values)
+        self.fields.append("edges")
+
+    def compile(self, population):
+        record = super().compile(population)
+        record["edges"] = edgeDiversity(population)
+        return record
 
 
-def mutInversion(individual, neighbours=None):
-    """Inversion mutation: reverse one segment of the tour (a 2-opt move, changes 2 edges).
+def tspDistance(individual, problem: TravelingSalesmanProblem):
+    """Fitness: TSPLIB tour length (each edge rounded to the nearest integer), minimised."""
+    return problem.getTotalDistanceRounded(individual),  # return a tuple
 
-    Without `neighbours` the segment is chosen uniformly at random. With neighbour lists,
-    a random city c is picked and the segment is chosen so that one of c's k nearest
-    cities becomes adjacent to c. This is a neighbour-list-guided 2-opt move. It borrows
-    the inversion step of Inver-over (Tao & Michalewicz 1998), but is not Inver-over: the
-    target city comes from a fixed nearest-neighbour list rather than from another
-    individual, and the move is applied once without an accept-if-better test.
-    """
-    size = len(individual)
-    if neighbours is None:
-        i, j = sorted(random.sample(range(size), 2))
-        individual[i:j + 1] = individual[i:j + 1][::-1]
-        return individual,
-
-    i = random.randrange(size)
-    j = individual.index(random.choice(neighbours[individual[i]]))
-    if j > i:
-        individual[i + 1:j + 1] = individual[i + 1:j + 1][::-1]  # neighbour moves to i + 1
-    elif j < i:
-        individual[j:i] = individual[j:i][::-1]                  # neighbour moves to i - 1
-    return individual,
-
-
-def initPopulation(problem, n, nn_fraction):
-    """Mixed initialization: nearest-neighbour tours from distinct random start cities,
-    the rest uniformly random permutations."""
-    n_nn = min(round(n * nn_fraction), len(problem))
-    starts = random.sample(range(len(problem)), n_nn)
-    population = [creator.Individual(nearestNeighbourTour(problem, s)) for s in starts]
-    population += [creator.Individual(random.sample(range(len(problem)), len(problem)))
-                   for _ in range(n - n_nn)]
-    return population
-
-
-def buildToolbox(problem, tournament_size=TOURNAMENT_SIZE, crossover=CROSSOVER, mutation=MUTATION, neighbours=NEIGHBOURS):
+def buildToolbox(problem, params):
+    """Register the operators described by `params` (a dict like BASELINE) in a DEAP toolbox."""
+    n = len(problem)
     toolbox = base.Toolbox()
 
-    # fitness: total (float) distance of the closed tour
-    toolbox.register("evaluate", lambda ind: (problem.getTotalDistance(ind),))
+    # initialization: uniformly random permutations
+    # create an operator that generates randomly shuffled indices:
+    toolbox.register("randomOrder", random.sample, range(n), n)
+    # create the individual creation operator to fill up an Individual instance with shuffled indices:
+    toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
+    # create the population creation operator to generate a list of individuals:
+    toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
 
-    toolbox.register("select", tools.selTournament, tournsize=tournament_size)
+    toolbox.register("evaluate", tspDistance, problem=problem)
 
-    if crossover == "ox":
-        toolbox.register("mate", tools.cxOrdered)
-    elif crossover == "pmx":
-        toolbox.register("mate", tools.cxPartialyMatched)
+    # parent selection
+    toolbox.register("select", tools.selTournament, tournsize=params["tournament_size"])
+
+    # crossover
+    if params["crossover"] not in CROSSOVERS:
+        raise ValueError(f"unknown crossover {params['crossover']!r}, choose from {list(CROSSOVERS)}")
+    if params["crossover"] == "upmx":
+        if params["crossover_indpb"] is None:
+            raise ValueError("crossover 'upmx' needs crossover_indpb")
+        toolbox.register("mate", CROSSOVERS["upmx"], indpb=params["crossover_indpb"])
     else:
-        raise ValueError(f"unknown crossover {crossover!r}")
+        toolbox.register("mate", CROSSOVERS[params["crossover"]])
 
-    if mutation == "inversion":
-        toolbox.register("mutate", mutInversion,
-                         neighbours=nearestNeighbourLists(problem, neighbours) if neighbours else None)
-    elif mutation == "swap":
-        toolbox.register("mutate", tools.mutShuffleIndexes, indpb=2.0 / len(problem))
+    # mutation
+    if params["mutation"] not in MUTATIONS:
+        raise ValueError(f"unknown mutation {params['mutation']!r}, choose from {list(MUTATIONS)}")
+    if params["mutation"] == "swap":
+        indpb = params["mutation_indpb"] if params["mutation_indpb"] is not None else 1.0 / n
+        toolbox.register("mutate", MUTATIONS["swap"], indpb=indpb)
     else:
-        raise ValueError(f"unknown mutation {mutation!r}")
+        toolbox.register("mutate", MUTATIONS[params["mutation"]])
+
     return toolbox
 
+def runEA(problem, params, seed, max_evals=config.MAX_EVALUATIONS, verbose=False):
+    """One independent, seeded EA run.
 
-def runEA(problem, seed, population_size=POPULATION_SIZE, elite_size=ELITE_SIZE,
-          p_crossover=P_CROSSOVER, p_mutation=P_MUTATION, nn_fraction=NN_FRACTION,
-          max_evals=config.MAX_EVALUATIONS, **toolbox_kwargs):
-    """One independent EA run. Returns (best individual, logbook)."""
+    :returns: 
+        (best individual, logbook). The logbook has per generation: gen, nevals, evals (cumulative), min and avg fitness of the population.
+    """
+    # every random choice (initialization and DEAP operators) uses the `random` module for repeatable results
     random.seed(seed)
     np.random.seed(seed)
 
-    toolbox = buildToolbox(problem, **toolbox_kwargs)
-    population = initPopulation(problem, population_size, nn_fraction)
+    toolbox = buildToolbox(problem, params)
 
-    stats = tools.Statistics(lambda ind: ind.fitness.values)
+    # create initial population (generation 0):
+    population = toolbox.populationCreator(n=params["population_size"])
+
+    # prepare the statistics object:
+    stats = PopulationStatistics()
     stats.register("min", np.min)
     stats.register("avg", np.mean)
 
-    hof = tools.HallOfFame(elite_size)
+    # define the hall-of-fame object:
+    hof = tools.HallOfFame(params["elite_size"])
 
-    population, logbook = elitism.eaSimpleWithElitism(
-        population, toolbox, cxpb=p_crossover, mutpb=p_mutation, max_evals=max_evals,
-        stats=stats, halloffame=hof, verbose=False)
-    return hof.items[0], logbook
+    # perform the Genetic Algorithm flow with hof feature added:
+    control = params.get("control")
+    if control is None:
+        population, logbook = elitism.eaSimpleWithElitism(
+            population, toolbox, cxpb=params["p_crossover"], mutpb=params["p_mutation"],
+            max_evals=max_evals, stats=stats, halloffame=hof, verbose=verbose)
+    elif control == "adaptive-pursuit":
+        pursuit = elitism.AdaptivePursuit(params["ap_arms"], params["ap_alpha"], params["ap_beta"],
+                                          params["ap_p_min"])
+        population, logbook = elitism.eaControlledWithElitism(
+            population, toolbox, cxpb=None, mutpb=None, max_evals=max_evals, stats=stats,
+            halloffame=hof, pursuit=pursuit, verbose=verbose)
+    elif control == "self-adaptive-pm":
+        for ind in population:
+            ind.pm = params["p_mutation"]  # every individual starts with the tuned rate
+        population, logbook = elitism.eaControlledWithElitism(
+            population, toolbox, cxpb=params["p_crossover"], mutpb=None, max_evals=max_evals,
+            stats=stats, halloffame=hof, sa_gamma=params["sa_gamma"], verbose=verbose)
+    else:
+        raise ValueError(f"unknown control {control!r}")
 
-
-def saveBestTourPlot(problem, best, length, path):
-    plt.figure()
-    problem.plotData(best)
-    plt.title(f"{problem.name} best EA tour (length {length})")
-    plt.savefig(path, dpi=150)
-    plt.close()
-
-
-def saveConvergencePlot(problem, logbooks, path):
-    plt.figure()
-    sns.set_style("whitegrid")
-    for seed, logbook in logbooks.items():
-        evals, mins = logbook.select("evals", "min")
-        plt.plot(evals, mins, label=f"seed {seed}")
-    plt.xlabel("Fitness evaluations")
-    plt.ylabel("Best tour length")
-    plt.title(f"{problem.name}: best fitness per run")
-    plt.legend()
-    plt.savefig(path, dpi=150)
-    plt.close()
-
-
-def solve(name):
-    """Run the EA NUM_RUNS times on one TSP, save results, and return the summary row."""
-    problem = tsp.TravelingSalesmanProblem(name)
-    # TSPLIB convention: each edge rounded to the nearest integer (also used for EA tours)
-    optimum = problem.getTotalDistanceRounded(problem.loadTour())
-
-    rows, logbooks, best_overall = [], {}, None
-    for run, seed in enumerate(config.RANDOM_SEEDS[:config.NUM_RUNS], start=1):
-        best, logbook = runEA(problem, seed)
-        assert sorted(best) == list(range(len(problem))), "best tour must be a permutation"
-        length = problem.getTotalDistanceRounded(best)
-        evals = logbook[-1]["evals"]
-        rows.append(dict(tsp=name, run=run, seed=seed, length=length, evals=evals,
-                         generations=logbook[-1]["gen"],
-                         deviation_pct=round(100 * (length - optimum) / optimum, 2)))
-        logbooks[seed] = logbook
-        if best_overall is None or length < best_overall[1]:
-            best_overall = (best, length)
-        print(f"{name} run {run} (seed {seed}): length {length}, "
-              f"deviation {rows[-1]['deviation_pct']:.2f}%, evaluations {evals}")
-
-    lengths = [r["length"] for r in rows]
-    average = statistics.mean(lengths)
-    summary = dict(tsp=name, cities=len(problem), optimum=optimum, best=min(lengths),
-                   worst=max(lengths), average=round(average, 1),
-                   std=round(statistics.stdev(lengths), 1) if len(lengths) > 1 else 0.0,
-                   deviation_pct=round(100 * (average - optimum) / optimum, 2))
-
-    config.RESULTS_DIR.mkdir(exist_ok=True)
-    with open(config.RESULTS_DIR / f"{name}_runs.csv", "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
-    saveBestTourPlot(problem, best_overall[0], best_overall[1],
-                     config.RESULTS_DIR / f"{name}_best_tour.png")
-    saveConvergencePlot(problem, logbooks, config.RESULTS_DIR / f"{name}_convergence.png")
-    return summary
-
+    # validate and return best individual info
+    best = hof.items[0]
+    assert sorted(best) == list(range(len(problem))), "best tour must be a valid permutation"
+    return best, logbook
 
 def main():
-    assert len(config.RANDOM_SEEDS) >= config.NUM_RUNS, "need one seed per run"
-    summaries = [solve(name) for name in config.parse_tsp_names("Run the EA")]
+    name = config.parse_tsp_names("Single run of the final EA design (reporting seed 1)")[0]
+    problem = TravelingSalesmanProblem(name)
+    best, logbook = runEA(problem, FINAL_DESIGN, seed=config.RANDOM_SEEDS[0], verbose=True)
 
-    print(f"\n{'TSP':<10}{'optimum':>10}{'best':>10}{'average':>12}{'worst':>10}{'std':>10}{'dev %':>8}")
-    for s in summaries:
-        print(f"{s['tsp']:<10}{s['optimum']:>10}{s['best']:>10}{s['average']:>12}"
-              f"{s['worst']:>10}{s['std']:>10}{s['deviation_pct']:>8.2f}")
-
-    with open(config.RESULTS_DIR / "summary.csv", "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=summaries[0].keys())
-        writer.writeheader()
-        writer.writerows(summaries)
-    print(f"\nResults saved in {config.RESULTS_DIR}")
-
+    optimum = config.KNOWN_OPTIMA[name]
+    length = best.fitness.values[0]
+    print(f"-- {name}: best length = {length:.0f}, optimum = {optimum}, "
+          f"deviation = {100 * (length - optimum) / optimum:.2f}%, evaluations = {logbook[-1]['evals']}")
 
 if __name__ == "__main__":
     main()

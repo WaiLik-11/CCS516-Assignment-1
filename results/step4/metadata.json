@@ -1,0 +1,138 @@
+{
+  "command": "uv run python DEAP-source-codes/experiments.py step4 --jobs 16",
+  "created": "2026-11-17T22:13:53",
+  "max_evaluations": 50000,
+  "step": "step4",
+  "description": "Population size (and so the number of generations) x crossover: mu in {300, 100, 50}, elites = 10% of mu, crossover in {OX, ERX, none}",
+  "tsps": [
+    "berlin52",
+    "eil101",
+    "tsp225",
+    "pcb442",
+    "pr1002"
+  ],
+  "seeds": [
+    101,
+    102,
+    103,
+    104,
+    105
+  ],
+  "known_optima": {
+    "berlin52": 7542,
+    "eil101": 629,
+    "tsp225": 3916,
+    "pcb442": 50778,
+    "pr1002": 259045
+  },
+  "variants": {
+    "ox-300": {
+      "population_size": 300,
+      "elite_size": 30,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null
+    },
+    "erx-300": {
+      "population_size": 300,
+      "elite_size": 30,
+      "tournament_size": 2,
+      "crossover": "erx",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null
+    },
+    "none-300": {
+      "population_size": 300,
+      "elite_size": 30,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.0,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null
+    },
+    "ox-100": {
+      "population_size": 100,
+      "elite_size": 10,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null
+    },
+    "erx-100": {
+      "population_size": 100,
+      "elite_size": 10,
+      "tournament_size": 2,
+      "crossover": "erx",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null
+    },
+    "none-100": {
+      "population_size": 100,
+      "elite_size": 10,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.0,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null
+    },
+    "ox-50": {
+      "population_size": 50,
+      "elite_size": 5,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null
+    },
+    "erx-50": {
+      "population_size": 50,
+      "elite_size": 5,
+      "tournament_size": 2,
+      "crossover": "erx",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null
+    },
+    "none-50": {
+      "population_size": 50,
+      "elite_size": 5,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.0,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null
+    }
+  },
+  "git": {
+    "commit": "484074b633ef517789af0af2535201ca2b920a54",
+    "uncommitted_changes": true
+  },
+  "versions": {
+    "python": "3.12.4",
+    "deap": "1.4",
+    "numpy": "1.26.3"
+  }
+}

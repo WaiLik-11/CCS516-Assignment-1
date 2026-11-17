@@ -11,10 +11,15 @@ RESULTS_DIR = ROOT_DIR / "results"
 TSP_NAMES = ["berlin52", "eil101", "tsp225", "pcb442", "pr1002"]
 KNOWN_OPTIMA = {"berlin52": 7542, "eil101": 629, "tsp225": 3916, "pcb442": 50778, "pr1002": 259045}
 
+# Known optimal tour lengths (TSPLIB EUC_2D), from
+# https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/tsp/TSP-BEST.html
+KNOWN_OPTIMA = {"berlin52": 7542, "eil101": 629, "tsp225": 3916, "pcb442": 50778, "pr1002": 259045}
+
 # EA settings
 MAX_EVALUATIONS = 50_000
 NUM_RUNS = 5
-RANDOM_SEEDS = [1, 2, 3, 4, 5]
+RANDOM_SEEDS = [1, 2, 3, 4, 5]          # final reported results only
+TUNING_SEEDS = [101, 102, 103, 104, 105]  # operator/parameter comparisons (steps 1+)
 
 def parse_tsp_names(description="Run on selected TSP instances"):
     """Return the TSP names chosen on the command line (default: all five)."""

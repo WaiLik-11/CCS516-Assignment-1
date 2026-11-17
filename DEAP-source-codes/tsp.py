@@ -185,7 +185,6 @@ def main():
     )
     table_lines = [header]
     print(header)
-
     for name in config.parse_tsp_names("Plot optimal tours"):
         tsp = TravelingSalesmanProblem(name)
         tour = tsp.loadTour()
@@ -193,9 +192,10 @@ def main():
 
         n = len(tour)
         edges = [tsp.distances[tour[i]][tour[(i + 1) % n]] for i in range(n)]
-        tsplib_length = sum(int(edge + 0.5) for edge in edges)
+        length = tsp.getTotalDistanceRounded(tour)
+        assert length == config.KNOWN_OPTIMA[name], "must equal the known optimum"
         row = (
-            f"{name:<10}{n:>7}{config.KNOWN_OPTIMA[name]:>10}{tsplib_length:>13}"
+            f"{name:<10}{n:>7}{config.KNOWN_OPTIMA[name]:>10}{length:>13}"
             f"{tsp.getTotalDistancePythonRounded(tour):>14}"
             f"{round(sum(edges)):>14}"
             f"{sum(edges):>12.2f}"
@@ -205,7 +205,7 @@ def main():
         table_lines.append(row)
 
         plot = tsp.plotData(tour)
-        plot.title(f"{name} optimal tour")
+        plot.title(f"{name} optimal tour (length {length})")
         plot.savefig(config.PLOTS_DIR / f"{name}_opt.png", dpi=150)
         plot.close()
 
