@@ -73,14 +73,14 @@ where `nint` rounds to the nearest integer, "implemented as `(int)(x + 0.5)`" in
 |---|---|---|---|
 | Crossover | OX `tools.cxOrdered` | Keep a segment of parent 1; fill the rest in parent 2's order (keeps the segment's edges) | [8] |
 | | PMX `tools.cxPartialyMatched`, UPMX `tools.cxUniformPartialyMatched` | Exchange positions and repair through the position mapping (preserve *positions*) | [9], [10] |
-| | ERX `operators.cxEdgeRecombination` | Build the child from the parents' edge map; always move to the neighbour with the fewest remaining edges | [11] |
+| | Enhanced ERX `operators.cxEdgeRecombination` | Build the child from the parents' edge map; follow an edge shared by both parents if possible, else move to the neighbour with the fewest remaining edges | [11], [12] |
 | Mutation | Swap `tools.mutShuffleIndexes` | Exchange cities (up to 4 edges change) | [2] |
 | | Inversion `tools.mutInversion` | Reverse a segment (2 edges change: a 2-opt move) | [13], [14] |
 | Parent selection | Tournament `tools.selTournament` | Best of *k* random individuals; *k* sets the selection pressure | [15] |
 | Initialization | Random (`tools.initIterate`); nearest neighbour (`operators.nearestNeighbourTour`) | Greedy tour: always go to the closest unvisited city, from a random start city | [16] |
 | Parameter control | Adaptive pursuit; self-adaptive *p_m*; uniform mix | See Section 5.3 | [17]–[19] |
 
-In our ERX, only about 3% of child edges are in neither parent. These are the known "edge failures" of the operator [12]. ERX makes one child per pair, so the second child starts from the other parent's first city, to fit DEAP's two-children `mate` interface.
+We use the enhanced ERX [12], which gives priority to edges present in both parents; the original [11] merges the parents' edges and can break an edge both parents share. Only about 3% of child edges are in neither parent. These are the known "edge failures" of the operator [12]. ERX makes one child per pair, so the second child starts from the other parent's first city, to fit DEAP's two-children `mate` interface.
 
 **Table 2. Final design** and the evidence for each choice (details in Section 5).
 
@@ -122,8 +122,8 @@ Table 3 summarises the decisions. Each row is a design step on the tuning seeds;
 | Step | Question | Key result | Decision |
 |---|---|---|---|
 | 2 | Mutation (μ = 300) | Inversion vs swap: +2.95%, *p* = 0.026; *p_m* 0.5 worse than 0.1 on all 10 comparisons | Keep swap |
-| 3 | Crossover (μ = 300) | PMX +19.3%, UPMX +13.9% (*p* < 10⁻⁶); ERX −9.6% (*p* = 0.0004); no crossover −10.2%, but with 9× more generations | Drop PMX and UPMX; decide OX vs ERX with μ |
-| 4, 4b | Population size μ × crossover | OX, μ = 50 vs 300: −30.1% (*p* = 2·10⁻⁶); at μ = 50, ERX +16.9% and no crossover +8.9% vs OX; μ = 30 tied, μ ≤ 20 worse | OX, μ = 50, 5 elites |
+| 3 | Crossover (μ = 300) | PMX +19.3%, UPMX +13.9% (*p* < 10⁻⁶); ERX −19.9% (*p* = 2·10⁻⁷); no crossover −10.2%, but with 9× more generations | Drop PMX and UPMX; decide OX vs ERX with μ |
+| 4, 4b | Population size μ × crossover | OX, μ = 50 vs 300: −30.1% (*p* = 2·10⁻⁶); at μ = 50, ERX +16.5% and no crossover +8.9% vs OX; μ = 30 tied, μ ≤ 20 worse | OX, μ = 50, 5 elites |
 | 5a | Tournament size | *k* = 1: +66.9%, *k* = 3: +8.9%, *k* = 5: +22.9% vs *k* = 2 (all *p* < 0.001) | *k* = 2 |
 | 5b | *p_c* × *p_m* grid | No setting significantly different (all *p* ≥ 0.096); small instances prefer more variation, pr1002 less | Keep 0.9 / 0.1 |
 | 6, 6b | Parameter control | See Section 5.3 | Uniform mix |
@@ -135,7 +135,7 @@ The main findings, in order of importance:
 
 1. **Initialization matters most (Step 9).** Under this budget, where the EA starts matters more than any operator. Even a single nearest-neighbour tour in the initial population reduces pr1002's deviation from 965% to 27%. Seeding all 50 tours from different start cities is best.
 2. **The number of generations is the next largest factor (Steps 3–4).** Reducing μ from 300 to 50 gives six times more generations within the budget and 30% shorter tours. It also explains a confound in Step 3: "no crossover" seemed best only because its unchanged offspring cost no evaluations, so it completed 1842 instead of 203 generations.
-3. **Edge-preserving operators win, but their merit depends on the rest of the design.** Operators that preserve positions (PMX, UPMX) are clearly worse than OX, which preserves adjacency, as the literature predicts [2], [12]. ERX, designed for the TSP, was the best crossover at μ = 300 but significantly the worst at μ = 50. In a small population it makes all tours nearly identical (final diversity ≈ 1.04–1.17 distinct edges per city, where 1.0 means all tours are the same), so crossover only produces copies.
+3. **Edge-preserving operators win, but their merit depends on the rest of the design.** Operators that preserve positions (PMX, UPMX) are clearly worse than OX, which preserves adjacency, as the literature predicts [2], [12]. ERX, designed for the TSP, was the best crossover at μ = 300 (better than OX on all five instances) but significantly the worst at μ = 50. In a small population it makes all tours nearly identical (final diversity ≈ 1.04–1.15 distinct edges per city, where 1.0 means all tours are the same), so crossover only produces copies.
 4. **The order of the steps mattered (Step 7).** Swap beat inversion at μ = 300 (Step 2), but inversion beat swap at μ = 50 (Step 7). Without the verification step the final design would have kept the wrong mutation, which gives 3.6% longer tours on the reporting seeds.
 
 ## 5.3 Parameter control and instance dependence
@@ -173,7 +173,7 @@ One trade-off explains most findings [25], [26]. As a simple measure, we use how
 | Baseline (μ = 300) | 6.0 | 3.0 | 1.3 |
 | **Design after Step 5 (μ = 50, *k* = 2)** | 2.3 | 0.8 | 0.5 |
 | *k* = 7 | 0.6 | 0.1 | 0.1 |
-| ERX, μ = 50 | 0.6 | 0.3 | 0.2 |
+| ERX, μ = 50 | 0.6 | 0.3 | 0.1 |
 
 - **The baseline explored too much** for its budget: it was still diverse after 203 generations. The largest operator-level gain (μ = 50) shifted it towards exploitation.
 - **Too much exploitation failed too.** Larger tournaments, μ ≤ 20 and ERX in a small population all collapsed the population and were worse. The chosen design sits between the extremes.

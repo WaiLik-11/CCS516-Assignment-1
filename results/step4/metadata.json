@@ -1,6 +1,6 @@
 {
   "command": "uv run python DEAP-source-codes/experiments.py step4 --jobs 16",
-  "created": "2026-11-18T00:07:05",
+  "created": "2026-11-19T21:17:34",
   "max_evaluations": 50000,
   "step": "step4",
   "description": "Population size (and so the number of generations) x crossover: mu in {300, 100, 50}, elites = 10% of mu, crossover in {OX, ERX, none}",
