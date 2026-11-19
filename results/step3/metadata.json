@@ -1,6 +1,6 @@
 {
   "command": "uv run python DEAP-source-codes/experiments.py step3 --jobs 16",
-  "created": "2026-11-18T00:04:31",
+  "created": "2026-11-19T21:14:43",
   "max_evaluations": 50000,
   "step": "step3",
   "description": "Crossover operator: OX vs PMX vs UPMX vs ERX vs no crossover (swap mutation, p_m = 0.1)",

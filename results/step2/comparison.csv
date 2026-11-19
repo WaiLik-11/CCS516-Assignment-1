@@ -11,9 +11,9 @@ inversion-pm0.5,swap-pm0.5,tsp225,5,406.85,393.9,2.52,1,4,
 inversion-pm0.5,swap-pm0.5,pcb442,5,754.04,771.8,-2.06,4,1,
 inversion-pm0.5,swap-pm0.5,pr1002,5,1551.28,1585.37,-2.02,5,0,
 inversion-pm0.5,swap-pm0.5,all,25,574.53,579.48,1.45,11,14,0.29
-inversion-erx,swap-erx,berlin52,5,7.38,9.12,-1.58,3,2,
-inversion-erx,swap-erx,eil101,5,34.59,36.98,-1.76,4,1,
-inversion-erx,swap-erx,tsp225,5,288.27,288.73,-0.16,2,3,
-inversion-erx,swap-erx,pcb442,5,722.37,715.4,0.85,1,4,
-inversion-erx,swap-erx,pr1002,5,1598.78,1578.87,1.18,2,3,
-inversion-erx,swap-erx,all,25,530.28,525.82,-0.3,12,13,0.87
+inversion-erx,swap-erx,berlin52,5,8.33,9.77,-1.26,3,2,
+inversion-erx,swap-erx,eil101,5,32.34,33.77,-1.07,4,1,
+inversion-erx,swap-erx,tsp225,5,196.31,193.9,0.99,2,3,
+inversion-erx,swap-erx,pcb442,5,585.81,575.58,1.5,2,3,
+inversion-erx,swap-erx,pr1002,5,1397.74,1394.55,0.22,3,2,
+inversion-erx,swap-erx,all,25,444.11,441.51,0.07,14,11,0.98

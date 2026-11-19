@@ -128,9 +128,9 @@ TSP fitness depends on which cities are **adjacent** (the edges), not on the abs
 | Order crossover (OX) | `tools.cxOrdered` | Copy a random segment from parent 1; fill the remaining positions with the missing cities in the order they appear in parent 2. Keeps the segment's edges and the relative order of the rest. | [8] |
 | Partially mapped crossover (PMX) | `tools.cxPartialyMatched` | Swap a segment between the parents and repair duplicates through the mapping defined by the segment. Preserves absolute positions more than adjacency. | [9] |
 | Uniform PMX (UPMX) | `tools.cxUniformPartialyMatched` | Like PMX, but each position is exchanged independently with probability `indpb`. | [10] |
-| Edge recombination (ERX) | `operators.cxEdgeRecombination` | Build an edge map of each city's neighbours in either parent. Starting from a city, always move to the neighbour with the fewest remaining neighbours (ties at random); if none is left, jump to a random unvisited city. | [11] |
+| Enhanced edge recombination (ERX) | `operators.cxEdgeRecombination` | Build an edge map of each city's neighbours in either parent, marking the edges that both parents share. Starting from a city, follow a shared edge if one is left; otherwise move to the neighbour with the fewest remaining neighbours (ties at random); if none is left, jump to a random unvisited city. | [11], [12] |
 
-ERX is designed specifically for the TSP: it builds children almost entirely from parental edges. In our implementation, only about 3% of child edges were in neither parent (random parents, *n* = 52 and 1002). These "edge failures" are the random jumps, a known weakness of the operator that later variants reduce [12]. The original ERX produces one child per pair; to fit DEAP's `mate` interface (two parents in, two children out), the second child starts from the other parent's first city.
+ERX is designed specifically for the TSP: it builds children almost entirely from parental edges. We use the enhanced version [12], which gives priority to edges present in both parents. The original ERX [11] merges the two parents' edges into one list and loses this information, so it can break an edge that both parents agree on. With the enhancement, every shared edge was kept in our tests with random parents. With near-identical parents, 99–99.9% were kept: when the child enters a city in the middle of a shared path from outside, one of the city's two shared edges must break. Only about 3% of child edges were in neither parent (random parents, *n* = 52 and 1002). These "edge failures" are the random jumps, a known weakness of the operator [12]. ERX produces one child per pair; to fit DEAP's `mate` interface (two parents in, two children out), the second child starts from the other parent's first city.
 
 **Mutation** (applied to each offspring with probability *p_m*):
 
@@ -228,17 +228,17 @@ All other parameters are as in the baseline.
 | | inversion | 19.99 | 96.92 | 379.95 | **729.06** | 1524.51 | 9 | +2.95% | **0.026** |
 | OX, *p_m* = 0.5 | swap | **25.81** | **120.54** | **393.90** | 771.80 | 1585.37 | | | |
 | | inversion | 33.28 | 127.19 | 406.85 | **754.04** | **1551.28** | 11 | +1.45% | 0.29 |
-| ERX, *p_m* = 0.1 | swap | 9.12 | 36.98 | 288.73 | **715.40** | **1578.87** | | | |
-| | inversion | **7.38** | **34.59** | **288.27** | 722.37 | 1598.78 | 12 | −0.30% | 0.87 |
+| ERX, *p_m* = 0.1 | swap | 9.77 | 33.77 | **193.90** | **575.58** | **1394.55** | | | |
+| | inversion | **8.33** | **32.34** | 196.31 | 585.81 | 1397.74 | 14 | +0.07% | 0.98 |
 
 Rel. diff.: geometric mean of the paired tour length ratios inversion/swap (positive = inversion's tours are longer). *p*: two-sided Wilcoxon signed-rank test on the 25 paired log ratios (Section 4.1).
 
 **Findings.**
 
 1. **The hypothesis of Section 4.2 is not supported.** In no setting is inversion significantly better than swap. In the baseline setting it is even significantly *worse* (tours 2.95% longer, *p* = 0.026); in the other two settings there is no significant difference. The differences between the two mutations (a few percent) are much smaller than the differences between settings.
-2. **The ranking depends on the setting and the instance.** With OX, swap is better on the three smaller instances but inversion wins on pcb442 (5 of 5 seeds at *p_m* = 0.1) and on pr1002 (5 of 5 at *p_m* = 0.5). With ERX, inversion is better on the three smaller instances. So the components **interact**, which confirms that the order of the one-component-at-a-time steps matters (Section 4.2). It is also a first sign that the best operator differs between instances (Section 5.6).
+2. **The ranking depends on the setting and the instance.** With OX, swap is better on the three smaller instances but inversion wins on pcb442 (5 of 5 seeds at *p_m* = 0.1) and on pr1002 (5 of 5 at *p_m* = 0.5). With ERX, inversion is better on the two smallest instances. So the components **interact**, which confirms that the order of the one-component-at-a-time steps matters (Section 4.2). It is also a first sign that the best operator differs between instances (Section 5.6).
 3. **More mutation is worse.** *p_m* = 0.5 is worse than 0.1 for both operators on all five instances (10 of 10 comparisons). With tournament size 2, selection is too weak to remove the many offspring that mutation makes worse. This shows in the population: on berlin52 the final population average is 17.1% above its best tour with *p_m* = 0.5, against 6.0% with *p_m* = 0.1.
-4. **Crossover matters much more than mutation at this stage.** Replacing OX with ERX, with no other change, reduced the mean deviation from 14.8% to 9.1% on berlin52, from 83.7% to 37.0% on eil101, and from 360% to 289% on tsp225. On pr1002 it did not help (1579% vs 1507%) (explained in Steps 3 and 4). [TODO Figure 3: `results/step2/convergence_eil101.png`, which shows the two ERX curves clearly separated from the four OX curves.]
+4. **Crossover matters much more than mutation at this stage.** Replacing OX with ERX, with no other change, reduced the mean deviation on every instance: from 14.8% to 9.8% on berlin52, from 83.7% to 33.8% on eil101, from 360% to 194% on tsp225, from 745% to 576% on pcb442 and from 1507% to 1395% on pr1002. [TODO Figure 3: `results/step2/convergence_eil101.png`, which shows the two ERX curves clearly separated from the four OX curves.]
 
 **Decision.** Keep **swap mutation with *p_m* = 0.1**. Inversion was significantly worse in the baseline setting and not significantly better in the others, so there is no evidence to justify changing the baseline. Mutation is revisited in the verification step (Section 5.8), when the rest of the design is final. Because the crossover had the largest effect, it is studied next.
 
@@ -256,15 +256,15 @@ Rel. diff.: geometric mean of the paired tour length ratios inversion/swap (posi
 | PMX | 58.57 | 130.91 | 428.79 | 823.09 | 1684.76 | 0 | +19.34% | 6·10⁻⁸ | 203 |
 | UPMX, `indpb` 0.1 | 48.45 | 127.63 | 411.65 | 765.13 | 1587.42 | 1 | +13.86% | 3·10⁻⁷ | 203 |
 | UPMX, `indpb` 0.5 | 73.11 | 234.59 | 583.15 | 1073.06 | 1989.82 | 0 | +48.56% | 6·10⁻⁸ | 203 |
-| ERX | **9.12** | **36.98** | 288.73 | 715.40 | 1578.87 | 20 | −9.60% | **0.0004** | 203 |
-| No crossover | 31.52 | 72.53 | **276.55** | **564.82** | **1259.51** | 19 | −10.19% | **0.002** | **1842** |
+| ERX | **9.77** | **33.77** | **193.90** | 575.58 | 1394.55 | 24 | −19.89% | **2·10⁻⁷** | 203 |
+| No crossover | 31.52 | 72.53 | 276.55 | **564.82** | **1259.51** | 19 | −10.19% | **0.002** | **1842** |
 
 **Findings.**
 
 1. **Position-based crossovers are clearly worse.** PMX and both UPMX settings lose to OX on almost every run (0–1 wins of 25, tours 14–49% longer, *p* < 10⁻⁶). This matches the literature [2], [12]: PMX and UPMX preserve the *absolute positions* of cities, but the TSP fitness depends on *adjacency*, which they disrupt. OX keeps whole segments, and therefore their edges. The more positions UPMX exchanges (`indpb` 0.5 vs 0.1), the worse it gets.
-2. **ERX, the edge-based operator, is the best crossover on four of the five instances.** It beats OX on all 5 seeds of berlin52, eil101, tsp225 and pcb442, with the largest gains on the small instances (berlin52 14.8% → 9.1%, eil101 83.7% → 37.0%). On pr1002 it loses on all 5 seeds. Pooled over the instances ERX is significantly better (tours 9.6% shorter, *p* = 0.0004). A likely cause: ERX keeps the population more diverse (on pr1002 the final population average is 4.6% above its best tour with ERX, against 1.3% with OX), so it converges more slowly, and about 200 generations are too few for 1002 cities. ERX is also about 7× slower per run (35 s vs 4.6 s); this does not count against it, because the budget is measured in evaluations, but it matters in practice.
-3. **"No crossover" is the best variant on the three largest instances, but the comparison is confounded.** With *p_c* = 0 and *p_m* = 0.1, 90% of the offspring are unchanged copies of their parents. DEAP does not re-evaluate them, so they cost no evaluations, and the run completes **1842 generations instead of 203**. The gain comes from 9× more generations of selection, not from leaving out crossover. Under the assignment's budget (evaluations) this is a legitimate design, but it shows that **the number of generations, set by the population size and the probabilities, is a bigger factor than the choice of crossover**. This is consistent with Step 2, where weak selection over few generations was already suspected.
-4. **Best variant per instance:** ERX on berlin52 and eil101, no crossover on tsp225, pcb442 and pr1002. Given finding 3, this split mainly reflects how many generations each instance needs, not a true difference in which crossover suits it.
+2. **ERX, the edge-based operator, is the best crossover on every instance.** It beats OX on 24 of 25 runs (all 5 seeds of every instance except one seed of berlin52), with the largest gains on eil101 (83.7% → 33.8%) and tsp225 (360% → 194%). Pooled over the instances ERX is significantly better (tours 19.9% shorter, *p* = 2·10⁻⁷). It also beats "no crossover" on the three smaller instances (all seeds), and pooled (−10.8%, *p* = 0.002), even though no crossover completes 9× more generations. On the large instances ERX keeps the population more diverse (on pr1002 the final population average is 4.3% above its best tour with ERX, against 1.3% with OX), so it is still far from converged after about 200 generations. ERX is also about 7× slower per run (35 s vs 4.6 s); this does not count against it, because the budget is measured in evaluations, but it matters in practice.
+3. **"No crossover" is the best variant on the two largest instances, but the comparison is confounded.** With *p_c* = 0 and *p_m* = 0.1, 90% of the offspring are unchanged copies of their parents. DEAP does not re-evaluate them, so they cost no evaluations, and the run completes **1842 generations instead of 203**. The gain comes from 9× more generations of selection, not from leaving out crossover. Under the assignment's budget (evaluations) this is a legitimate design, but it shows that **the number of generations, set by the population size and the probabilities, is a bigger factor than the choice of crossover**. This is consistent with Step 2, where weak selection over few generations was already suspected.
+4. **Best variant per instance:** ERX on berlin52, eil101 and tsp225, no crossover on pcb442 and pr1002. Given finding 3, this split mainly reflects how many generations each instance needs, not a true difference in which crossover suits it.
 
 **Decision.**
 
@@ -285,25 +285,25 @@ The population size μ was varied together with the three crossover options kept
 | μ | Crossover | berlin52 | eil101 | tsp225 | pcb442 | pr1002 | Generations |
 |---|---|---|---|---|---|---|---|
 | 300 | OX | 14.82 | 83.69 | 360.26 | 745.42 | 1507.12 | 203 |
-| | ERX | **9.12** | **36.98** | 288.73 | 715.40 | 1578.87 | 203 |
+| | ERX | **9.77** | **33.77** | 193.90 | 575.58 | 1394.55 | 203 |
 | | none | 31.52 | 72.53 | 276.55 | 564.82 | 1259.51 | 1842 |
 | 100 | OX | 13.99 | 39.81 | 192.73 | 485.34 | 1156.94 | 610 |
-| | ERX | 18.67 | 48.71 | 211.87 | 555.32 | 1498.33 | 610 |
+| | ERX | 15.80 | 58.76 | 199.42 | 465.83 | 1327.29 | 610 |
 | | none | 30.71 | 72.97 | 221.57 | 438.98 | 991.80 | 5550 |
 | 50 | OX | 14.97 | 45.76 | **155.06** | **377.30** | 974.96 | 1245 |
-| | ERX | 20.94 | 58.92 | 229.69 | 503.94 | 1152.86 | 1245 |
+| | ERX | 22.67 | 66.49 | 233.69 | 474.91 | 1102.26 | 1245 |
 | | none | 36.50 | 62.42 | 202.08 | 408.12 | **889.85** | 11103 |
 
 Pooled Wilcoxon tests (25 paired runs each; relative difference in tour length):
 
 - **Smaller μ:** μ = 50 vs 300 with OX: 22 wins, −30.1%, *p* = 1.5·10⁻⁶.
-- **ERX vs OX:** μ = 100: 3 wins, +10.9%, *p* = 3.3·10⁻⁶; μ = 50: 2 wins, +16.9%, *p* = 1.1·10⁻⁶.
+- **ERX vs OX:** μ = 300: 24 wins, −19.9%, *p* = 1.8·10⁻⁷; μ = 100: 7 wins, +5.3%, *p* = 0.003; μ = 50: 0 wins, +16.5%, *p* = 6·10⁻⁸.
 - **No crossover vs OX at μ = 50:** 5 wins, +8.9%, *p* = 0.0006.
 
 **Findings.**
 
 1. **A smaller population is the largest improvement so far.** With OX, going from μ = 300 to 50 roughly halves the deviation on tsp225 (360% → 155%) and pcb442 (745% → 377%). Six times more generations of selection outweighs the loss of diversity. This confirms the suspicion from Steps 2 and 3 that the baseline had too few generations.
-2. **ERX only wins in a large population, and loses in a small one.** At μ = 300 it is the best crossover on the small instances. At μ = 100 and 50 it is significantly worse than OX, and on berlin52 and eil101 it even gets *worse* as μ shrinks (9.1% → 20.9% on berlin52). The final population shows why. With ERX the population average ends within 0.6–1.2% of its best tour on berlin52 and eil101, at both μ = 300 and 50 (OX at μ = 300: 6.0–6.5%), so the population has collapsed to nearly identical tours. ERX only uses edges present in the parents, so two near-identical parents produce a near-identical child, and the search stalls. A large population delays this collapse; a small one does not. This is another **interaction**: which crossover is best depends on the population size.
+2. **ERX only wins in a large population, and loses in a small one.** At μ = 300 it is the best crossover on all five instances. At μ = 100 and 50 it is significantly worse than OX (at μ = 100 it still wins on pcb442, on 4 of 5 seeds), and on berlin52, eil101 and tsp225 it even gets *worse* as μ shrinks (9.8% → 22.7% on berlin52). The final population shows why. With ERX the population average ends within 0.4–1.0% of its best tour on berlin52 and eil101, at both μ = 300 and 50 (OX at μ = 300: 6.0–6.5%), so the population has collapsed to nearly identical tours. ERX only uses edges present in the parents, and the enhanced version always keeps the edges they share, so two near-identical parents produce a near-identical child, and the search stalls. A large population delays this collapse; a small one does not. This is another **interaction**: which crossover is best depends on the population size.
 3. **Crossover adds value once generations are comparable.** At μ = 50, OX beats no crossover on four instances (e.g. tsp225 155% vs 202%), even though no crossover completes 9× more generations. Only pr1002 still prefers no crossover (890% vs 975%). Pooled, OX is significantly better (no crossover gives 8.9% longer tours, *p* = 0.0006).
 
 **Step 4b: extending the range.** μ = 50 was the smallest size tested and still improving, so the best value might lie below the tested range. Step 4b tested OX with μ ∈ {50, 30, 20, 10} (elites 10% of μ, at least 1):
@@ -375,7 +375,7 @@ Tuning each instance separately was rejected for three reasons:
 
 Instead, the instance dependence is **measured**: every step also reports the best variant per instance (`experiments.py` output), and Section 5.8 quantifies how much a per-instance choice would have gained over the shared design on the reporting seeds.
 
-The steps do show instance dependence. In Step 2 the mutation ranking flipped between the small and the large instances, and ERX helped on every instance except pr1002. This motivates **parameter control**: a mechanism that adapts the design *during each run*, so that each instance can settle on its own settings without separate tuning.
+The steps do show instance dependence. In Step 2 the mutation ranking flipped between the small and the large instances, and in Step 3 the best variant was ERX on the three smaller instances but no crossover on the two largest. This motivates **parameter control**: a mechanism that adapts the design *during each run*, so that each instance can settle on its own settings without separate tuning.
 
 Choosing operators by experiment before the run, as in Steps 2 to 5, is *parameter tuning*. Changing operators or their probabilities *during* a run is *parameter control*, which can be deterministic, adaptive or self-adaptive [21], [18].
 
@@ -424,7 +424,7 @@ The results of Steps 1–6 are explained by one trade-off. **Exploration** means
 | **Tuned (OX, μ = 50, *k* = 2)** | 2.3 | 1.6 | 1.2 | 0.8 | 0.5 | 1245 |
 | *p_c* = 0.6, *p_m* = 0.05 | 1.3 | 0.5 | 0.4 | 0.1 | 0.1 | 1828 |
 | Tournament *k* = 7 | 0.6 | 0.3 | 0.1 | 0.1 | 0.1 | 1245 |
-| ERX, μ = 50 | 0.6 | 0.7 | 0.4 | 0.3 | 0.2 | 1245 |
+| ERX, μ = 50 | 0.6 | 0.4 | 0.2 | 0.3 | 0.1 | 1245 |
 | No crossover, μ = 50 | 1.3 | 0.5 | 0.2 | 0.2 | 0.03 | 11103 |
 
 1. **The baseline explored too much for its budget.** After 50,000 evaluations its tours were hundreds of percent above the optimum, yet its population was still diverse (gap 3–6.5% on four instances) after only 203 generations. The largest single improvement, reducing μ from 300 to 50 (Step 4), shifted the balance towards exploitation: six times more generations of selection on a smaller population.
@@ -448,7 +448,7 @@ The results of Steps 1–6 are explained by one trade-off. **Exploration** means
 | **Inversion** | **5.97** | **23.18** | **144.47** | 396.91 | 977.07 | **−4.88%** | **0.011** | 1.20–1.83 |
 | PMX | 51.49 | 118.86 | 357.13 | 670.74 | 1399.81 | +51.51% | 6·10⁻⁸ | 1.03–1.38 |
 | UPMX, `indpb` 0.1 | 53.07 | 117.62 | 370.67 | 673.75 | 1414.16 | +52.91% | 6·10⁻⁸ | 1.03–1.37 |
-| ERX | 20.94 | 58.92 | 229.69 | 503.94 | 1152.86 | +16.87% | 1·10⁻⁶ | 1.04–1.17 |
+| ERX | 22.67 | 66.49 | 233.69 | 474.91 | 1102.26 | +16.46% | 6·10⁻⁸ | 1.04–1.15 |
 | No crossover | 36.50 | 62.42 | 202.08 | 408.12 | **889.85** | +8.93% | 0.0006 | 1.02–1.56 |
 
 **The verification found an order effect.** At μ = 300 (Step 2), swap was significantly better than inversion (*p* = 0.026). At μ = 50, inversion is significantly better (−4.9%, *p* = 0.011), and it halves the deviation on berlin52 and eil101. The best mutation therefore **depended on the population size**, which was only fixed later in the order. This is the risk of one-component-at-a-time design discussed in Section 4.2. The crossover decision was confirmed: OX remains significantly better than all alternatives.
@@ -566,17 +566,17 @@ On the two small instances the EA does most of the work: it turns tours 8–19% 
    - `mutInversion` can choose the same two positions and change nothing, but the offspring is still marked as mutated and re-evaluated, wasting an evaluation. Its slice also leaves out the end position, although the docstring says `[low, high]`.
    - `selRoulette` assumes maximisation and positive fitness.
    - DEAP's crossovers modify the parents in place; `varAnd` clones them first.
-5. **Custom vs. established operators.** An earlier draft used a custom "nearest-neighbour-guided inversion" that performed well, but it was not an operator from the literature and was hard to justify. We replaced it with DEAP operators and the published ERX, so every design choice can be traced to a citable source.
+5. **Custom vs. established operators.** An earlier draft used a custom "nearest-neighbour-guided inversion" that performed well, but it was not an operator from the literature and was hard to justify. We replaced it with DEAP operators and the published ERX, so every design choice can be traced to a citable source. Our first ERX followed the original paper [11]; it did not give priority to edges shared by both parents, so we switched to the enhanced version [12] and re-ran every step that uses it.
 6. **Reproducibility.**
    - A random choice among elements of a Python `set` depends on its iteration order, so ERX sorts the candidates before `random.choice`.
    - Each parallel run seeds itself, so results are identical for any number of worker processes.
    - Tuning and reporting seeds are kept separate.
 7. **A plausible hypothesis that the data rejected (step 2).** We expected inversion to beat swap mutation, based on locality and the literature. It did not, at least at the baseline's weak selection pressure and short run length. Running the comparison in several settings, rather than only one, also revealed that the mutation ranking changes with the crossover and the instance.
 8. **Statistics with few runs.** With 5 seeds, a per-instance exact Wilcoxon test can never give *p* < 0.05 (two-sided minimum 0.0625). We therefore pool the paired runs over all instances and also report wins per instance.
-9. **A hidden confound: unchanged offspring are free.** In Step 3 the no-crossover variant appeared to be the best design on the three largest instances. The cause was that its unchanged offspring are not re-evaluated, so it ran 9× more generations for the same 50,000 evaluations. Comparing variants under an evaluation budget is fair, but explaining *why* a variant wins requires also looking at the generations completed. We now log them for every run.
+9. **A hidden confound: unchanged offspring are free.** In Step 3 the no-crossover variant appeared to be the best design on the two largest instances. The cause was that its unchanged offspring are not re-evaluated, so it ran 9× more generations for the same 50,000 evaluations. Comparing variants under an evaluation budget is fair, but explaining *why* a variant wins requires also looking at the generations completed. We now log them for every run.
 10. **The best setting at the edge of the tested range.** In Step 4, μ = 50 was both the best and the smallest value tested. Stopping there would have left open whether an even smaller population is better. Extending the range (Step 4b) showed the best value lies between 30 and 50.
 11. **An operator's merit depends on the rest of the design.** ERX was the best crossover in Step 3 (μ = 300) and significantly the worst in Step 4 (μ = 50), because it makes small populations collapse. Had we fixed the crossover in Step 3 and never revisited it, the final design would have been worse.
-12. **A biased pooled test (our own mistake).** At first we pooled the Wilcoxon test over the *differences in deviation %*. Deviations on pr1002 are about 100× those on berlin52, so its differences always received the largest ranks, and the pooled test effectively measured pr1002 alone. For example, berlin52 improving from 15.0% to 10.9% deviation is a 3.6% shorter tour, as large in relative terms as pr1002 changing from 975% to 1023% (4.6%). Testing the *log length ratios* gives every instance equal weight. Correcting this changed several *p*-values: inversion vs swap went from 0.063 to 0.026, ERX vs OX at μ = 300 from 0.09 to 0.0004, and no crossover vs OX at μ = 50 from 0.2 to 0.0006. None of the decisions changed, but several became better supported. Because all runs were saved, the analysis could be redone without re-running any EA (`--reanalyse`).
+12. **A biased pooled test (our own mistake).** At first we pooled the Wilcoxon test over the *differences in deviation %*. Deviations on pr1002 are about 100× those on berlin52, so its differences always received the largest ranks, and the pooled test effectively measured pr1002 alone. For example, berlin52 improving from 15.0% to 10.9% deviation is a 3.6% shorter tour, as large in relative terms as pr1002 changing from 975% to 1023% (4.6%). Testing the *log length ratios* gives every instance equal weight. Correcting this changed several *p*-values: inversion vs swap went from 0.063 to 0.026, ERX vs OX at μ = 300 from 0.09 to 0.0004 (with the original ERX, before the switch in item 5), and no crossover vs OX at μ = 50 from 0.2 to 0.0006. None of the decisions changed, but several became better supported. Because all runs were saved, the analysis could be redone without re-running any EA (`--reanalyse`).
 13. **Opposite preferences cancel out in pooled results (Step 5b).** A pooled test showing "no significant difference" can hide strong but opposite effects on individual instances. Per-instance wins and relative differences must be read alongside the pooled result.
 14. **A controller needs a control experiment.** Adaptive pursuit looked like a success (−2.76%, *p* = 0.012). Only a variant that mixes the same settings *without learning* showed that the learning itself contributed nothing measurable. Without that control we would have credited the wrong mechanism.
 15. **The controller's own parameters need tuning too.** Adaptive pursuit adds α, β, *P_min*, the arm set and the reward definition. Its result depended strongly on the learning rate (from −0.6% to −2.8%). Parameter control does not remove tuning; it moves it to a different level.

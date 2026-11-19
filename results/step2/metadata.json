@@ -1,6 +1,6 @@
 {
   "command": "uv run python DEAP-source-codes/experiments.py step2 --jobs 16",
-  "created": "2026-11-18T00:01:12",
+  "created": "2026-11-19T21:11:07",
   "max_evaluations": 50000,
   "step": "step2",
   "description": "Mutation operator: swap vs inversion, checked at a higher rate and with ERX to see whether the choice depends on the crossover studied later",

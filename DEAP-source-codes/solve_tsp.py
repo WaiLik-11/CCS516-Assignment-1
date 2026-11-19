@@ -59,7 +59,7 @@ CROSSOVERS = {
     "ox": tools.cxOrdered,                    # Davis (1985)
     "pmx": tools.cxPartialyMatched,           # Goldberg & Lingle (1985)
     "upmx": tools.cxUniformPartialyMatched,   # Cicirello & Smith (2000)
-    "erx": operators.cxEdgeRecombination,     # Whitley, Starkweather & Fuquay (1989)
+    "erx": operators.cxEdgeRecombination,     # Whitley et al. (1989), enhanced: Starkweather et al. (1991)
 }
 MUTATIONS = {
     "swap": tools.mutShuffleIndexes,          # swap mutation
