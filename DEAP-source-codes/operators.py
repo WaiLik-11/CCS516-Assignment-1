@@ -5,6 +5,7 @@
 """
 
 import random
+import numpy as np
 
 def _edgeMap(ind1, ind2):
     """Adjacency list of every city: its neighbours in either parent (a tour is a cycle)."""
@@ -79,7 +80,6 @@ def nearestNeighbourTour(distances, start):
     `distances` is the (integer) distance matrix as a NumPy array. Building the tour reads the
     distance matrix but evaluates no tour, so it costs no fitness evaluations.
     """
-    import numpy as np
     n = len(distances)
     visited = np.zeros(n, dtype=bool)
     tour = [start]

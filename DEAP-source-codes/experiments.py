@@ -121,8 +121,7 @@ STEPS["step5b"] = dict(
     base=STEP4_DESIGN,
     variants={  # current setting (p_c 0.9, p_m 0.1) first, as the reference
         f"pc{pc}-pm{pm}": {"p_crossover": pc, "p_mutation": pm}
-        for pc, pm in [(0.9, 0.1)] + [(pc, pm) for pc in (0.6, 0.9, 1.0) for pm in (0.05, 0.1, 0.2)
-                                      if (pc, pm) != (0.9, 0.1)]
+        for pc, pm in [(0.9, 0.1)] + [(pc, pm) for pc in (0.6, 0.9, 1.0) for pm in (0.05, 0.1, 0.2) if (pc, pm) != (0.9, 0.1)]
     },
 )
 
@@ -130,16 +129,14 @@ STEPS["step5b"] = dict(
 # opposite probabilities, so step 6 lets the EA control them during the run.
 PURSUIT_ARMS = [(0.6, 0.05), (0.9, 0.1), (1.0, 0.2)]  # low / tuned / high variation, from step 5b
 STEPS["step6"] = dict(
-    description="Parameter control: adaptive pursuit over (p_c, p_m) settings and self-adaptive p_m, "
-                "vs the tuned fixed probabilities",
+    description="Parameter control: adaptive pursuit over (p_c, p_m) settings and self-adaptive p_m, vs the tuned fixed probabilities",
     base=STEP4_DESIGN,
     variants={
         "tuned": {},
         "adaptive-pursuit": {"control": "adaptive-pursuit", "ap_arms": PURSUIT_ARMS},
         "self-adaptive-pm": {"control": "self-adaptive-pm"},
     },
-    comparisons=[("adaptive-pursuit", "tuned"), ("self-adaptive-pm", "tuned"),
-                 ("self-adaptive-pm", "adaptive-pursuit")],
+    comparisons=[("adaptive-pursuit", "tuned"), ("self-adaptive-pm", "tuned"), ("self-adaptive-pm", "adaptive-pursuit")],
 )
 
 # step 6 check: the pursuit probabilities oscillate from generation to generation. Is the controller

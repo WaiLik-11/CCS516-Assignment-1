@@ -4,7 +4,6 @@ import random
 from deap import tools
 from deap import algorithms
 
-
 def _evaluate(toolbox, individuals):
     """Evaluate the given individuals and return how many fitness evaluations were spent."""
     fitnesses = toolbox.map(toolbox.evaluate, individuals)
@@ -12,14 +11,11 @@ def _evaluate(toolbox, individuals):
         ind.fitness.values = fit
     return len(individuals)
 
-
 def _reached(halloffame, target):
     """Second termination criterion: the best individual has reached the target (minimisation)."""
     return target is not None and halloffame.items[0].fitness.values[0] <= target
 
-
-def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None,
-                        halloffame=None, verbose=__debug__, target=None):
+def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None, halloffame=None, verbose=__debug__, target=None):
     """Generational EA with elitism and a hard fitness-evaluation budget.
 
     Based on DEAP's eaSimple(), with two modifications:
@@ -38,8 +34,8 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None,
       also stops as soon as the best individual reaches it. With elitism this cannot change the
       final result (nothing is better than the optimum); it only saves evaluations.
 
-    :returns: the final population and a logbook with per-generation ``nevals`` and the
-              cumulative evaluation count ``evals``.
+    :returns: 
+        the final population and a logbook with per-generation ``nevals`` and the cumulative evaluation count ``evals``.
     """
     if halloffame is None:
         raise ValueError("halloffame parameter must not be empty!")
@@ -65,11 +61,14 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None,
         gen += 1
 
         # Parent selection
+        # Select the next generation individuals
         offspring = toolbox.select(population, len(population) - hof_size)
 
         # Variation (clones the parents, then crossover and mutation)
+        # Vary the pool of individuals
         offspring = algorithms.varAnd(offspring, toolbox, cxpb, mutpb)
 
+        # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
 
         # Do not exceed the evaluation budget in the last generation
@@ -82,15 +81,21 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None,
         evals += _evaluate(toolbox, invalid_ind)
 
         # Survivor selection: elites + offspring (generational replacement)
+        # add the best back to population:
         offspring.extend(halloffame.items)
+
+        # Update the hall of fame with the generated individuals
         halloffame.update(offspring)
 
+        # If the last generation was cut short, refill the population with the best already-evaluated individuals
         missing = len(population) - len(offspring)
         if missing > 0:
             offspring.extend(toolbox.clone(ind) for ind in tools.selBest(population, missing))
 
+        # Replace the current population by the offspring
         population[:] = offspring
 
+        # Append the current generation statistics to the logbook
         record = stats.compile(population) if stats else {}
         logbook.record(gen=gen, nevals=len(invalid_ind), evals=evals, **record)
         if verbose:
@@ -134,13 +139,11 @@ class AdaptivePursuit:
             target = self.p_max if i == best else self.p_min
             self.P[i] += self.beta * (target - self.P[i])
 
-
 def perturbRate(rate, gamma, low=0.001, high=1.0):
     """Self-adaptive mutation of a probability (Bäck & Schütz, 1996): a log-normal step on the
     odds p / (1 - p), so the rate stays in (0, 1) and small and large rates change proportionally."""
     rate = 1.0 / (1.0 + (1.0 - rate) / rate * math.exp(-gamma * random.gauss(0.0, 1.0)))
     return min(max(rate, low), high)
-
 
 def _varyWithCredit(parents, toolbox, cxpb, mutpb, sa_gamma=None):
     """Same as DEAP's algorithms.varAnd (same order of random draws), but also returns, for every
@@ -172,7 +175,6 @@ def _varyWithCredit(parents, toolbox, cxpb, mutpb, sa_gamma=None):
             del offspring[i].fitness.values
 
     return offspring, reference
-
 
 def eaControlledWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None, halloffame=None,
                             pursuit=None, sa_gamma=None, verbose=__debug__, target=None):
@@ -227,6 +229,7 @@ def eaControlledWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=N
         offspring, reference = _varyWithCredit(parents, toolbox, cxpb, mutpb, sa_gamma)
         reference = {id(ind): ref for ind, ref in zip(offspring, reference)}
 
+        # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
 
         # Do not exceed the evaluation budget in the last generation
@@ -240,20 +243,25 @@ def eaControlledWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=N
 
         # Credit assignment: improvement over the better parent, per evaluation spent
         if arm is not None and invalid_ind:
-            gain = sum(max(0.0, (reference[id(ind)] - ind.fitness.values[0]) / reference[id(ind)])
-                       for ind in invalid_ind)
+            gain = sum(max(0.0, (reference[id(ind)] - ind.fitness.values[0]) / reference[id(ind)]) for ind in invalid_ind)
             pursuit.update(arm, gain / len(invalid_ind))
 
         # Survivor selection: elites + offspring (generational replacement)
+        # add the best back to population:
         offspring.extend(halloffame.items)
+
+        # Update the hall of fame with the generated individuals
         halloffame.update(offspring)
 
+        # If the last generation was cut short, refill the population with the best already-evaluated individuals
         missing = len(population) - len(offspring)
         if missing > 0:
             offspring.extend(toolbox.clone(ind) for ind in tools.selBest(population, missing))
 
+        # Replace the current population by the offspring
         population[:] = offspring
 
+        # Append the current generation statistics to the logbook
         record = stats.compile(population) if stats else {}
         logbook.record(gen=gen, nevals=len(invalid_ind), evals=evals, **record, **control())
         if verbose:
