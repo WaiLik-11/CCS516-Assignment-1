@@ -152,7 +152,7 @@ ERX is designed specifically for the TSP: it builds children almost entirely fro
 | Component | Final choice | Evidence |
 |---|---|---|
 | Representation, fitness | Permutation of city indices; TSPLIB EUC_2D tour length | Given; Section 2.3 |
-| Initialization | All 50 individuals are nearest-neighbour tours from distinct random start cities | Step 9: 59.7% shorter tours than random initialization on the reporting seeds (*p* = 10⁻⁷); better than seeding 5 of 50 (*p* = 0.0002) |
+| Initialization | All 50 individuals are nearest-neighbour tours from distinct random start cities | Step 9: 59.5% shorter tours than random initialization on the reporting seeds (25 of 25 runs, *p* = 6·10⁻⁸); better than seeding 5 of 50 (*p* = 0.0002) |
 | Parent selection | Tournament, size *k* = 2 (`tools.selTournament`) | Step 5a: better than *k* = 1, 3, 5, 7 (all *p* < 0.001) |
 | Crossover | Order crossover OX (`tools.cxOrdered`) | Step 3: better than PMX and UPMX; Steps 4 and 7: better than ERX and no crossover at μ = 50 |
 | Mutation | Inversion (`tools.mutInversion`) | Step 7: better than swap at μ = 50 (−4.9%, *p* = 0.011); confirmed on the reporting seeds (−3.6%, *p* = 0.048) |
@@ -200,7 +200,7 @@ The baseline keeps the operators and parameters of the original template (OX wit
 | pcb442 | 50778 | 414058 | 429289.6 | 436732 | 9275.6 | 745.42 |
 | pr1002 | 259045 | 4111551 | 4163176 | 4224493 | 44063.5 | 1507.12 |
 
-To put these numbers in context, the best of 300 random tours (the size of the initial population) lies 221%, 386%, 856%, 1332% and 2282% above the optimum for the five instances, in the same order. The baseline improves on random tours, but the improvement shrinks quickly as the instance grows. The convergence curves are still falling steeply at 50,000 evaluations [TODO Figure 2: `results/step1/convergence_pcb442.png`], so the search is far from converged when the budget runs out.
+To put these numbers in context, the best of 300 random tours (the size of the initial population) lies 223%, 380%, 874%, 1333% and 2288% above the optimum for the five instances, in the same order. The baseline improves on random tours, but the improvement shrinks quickly as the instance grows. The convergence curves are still falling steeply at 50,000 evaluations [TODO Figure 2: `results/step1/convergence_pcb442.png`], so the search is far from converged when the budget runs out.
 
 Three reasons are likely, each tested in a later step:
 
@@ -401,7 +401,7 @@ Both controllers are a generational loop in `elitism.py` with the same elitism a
 
 1. **Self-adaptation helps the small instances and hurts the large ones.** On berlin52 and eil101 it wins on all 5 seeds (up to 6.7% shorter tours). On pcb442 and pr1002 it loses on all 5 (up to 9.9% longer). The mean *p_m* rose from 0.1 to 0.19–0.31 by the end of the run on *every* instance [TODO Figure: `results/step6/control_self-adaptive-pm.png`], including pr1002, which in Step 5b preferred *less* mutation. This confirms the expected weakness. Self-adaptation selects rates through the fitness of the individuals that carry them. It cannot see that unchanged offspring cost no evaluations, so that a low rate buys extra generations, which is what pr1002 benefits from.
 2. **Adaptive pursuit with the initial learning rates (α = β = 0.8) gave no significant gain** (−1.0%, *p* = 0.30), and its arm probabilities jumped from generation to generation. We suspected it was chasing noise in the per-generation reward. A follow-up (Step 6b) varied the learning rate and added a control variant, **uniform mix**, which draws one of the three settings at random each generation and never learns (β = 0).
-3. **The gain comes from mixing settings, not from learning.** Slower learning helped: with α = β = 0.1 the tours are 2.76% shorter (*p* = 0.012), with gains on all five instances. But uniform random mixing, with no learning at all, also gives 1.41% shorter tours (*p* = 0.039), and **no pursuit variant is significantly better than uniform mixing** (best: α = 0.1, −1.37%, *p* = 0.28). Even at α = 0.1 the arm probabilities stay around 1/3 throughout the run on every instance [TODO Figure: `results/step6b/control_ap-0.1.png`]. The reward does not consistently favour one setting, so there is little to learn. What helps is alternating between low and high variation.
+3. **The gain comes from mixing settings, not from learning.** Slower learning helped: with α = β = 0.1 the tours are 2.76% shorter (*p* = 0.012), with gains on all five instances. But uniform random mixing, with no learning at all, also gives 1.41% shorter tours (*p* = 0.039), and **no pursuit variant is significantly better than uniform mixing** (best: α = 0.1, −1.37%, *p* = 0.28). Even at α = 0.1 the arm probabilities fluctuate around 1/3 without settling on any setting, on every instance [TODO Figure: `results/step6b/control_ap-0.1.png`]. The reward does not consistently favour one setting, so there is little to learn. What helps is alternating between low and high variation.
 4. **Our reward did not measure what we intended.** We expected a reward per evaluation to favour the cheap low-variation arm on pr1002. It did not: the reward measures how much each evaluated child improves on its parent, not how much the *run* gains per evaluation (e.g. through extra generations). On pr1002 the α = 0.8 pursuit even ended with the high-variation arm most likely (0.65). A reward based on the improvement of the best tour per evaluation would capture this better, but it is sparse and noisy. We leave it as future work.
 5. **Caution about selection.** Five controller variants were compared with the tuned design on the same tuning seeds. With a Bonferroni correction for five comparisons [17], the best *p*-value (0.012 × 5 = 0.06) is no longer below 0.05. The gains of 1–3% are therefore suggestive, not conclusive. They must be confirmed on the separate reporting seeds (Section 5.8).
 
@@ -418,21 +418,21 @@ The results of Steps 1–6 are explained by one trade-off. **Exploration** means
 | Variant | berlin52 | eil101 | tsp225 | pcb442 | pr1002 | Generations |
 |---|---|---|---|---|---|---|
 | Tournament *k* = 1 (random parents) | 52.2 | 36.7 | 18.1 | 7.9 | 4.0 | 1245 |
-| Baseline (OX, μ = 300) | 6.0 | 6.5 | 5.5 | 3.0 | 1.3 | 203 |
+| Baseline (OX, μ = 300) | 6.0 | 6.5 | 5.4 | 3.0 | 1.3 | 203 |
 | *p_c* = 1.0, *p_m* = 0.2 | 9.1 | 5.2 | 2.5 | 1.3 | 0.7 | 1131 |
 | Self-adaptive *p_m* | 6.1 | 4.7 | 2.0 | 1.3 | 0.6 | 1218 |
-| **Tuned (OX, μ = 50, *k* = 2)** | 2.3 | 1.6 | 1.2 | 0.8 | 0.5 | 1245 |
+| **Tuned (OX, μ = 50, *k* = 2)** | 2.3 | 1.6 | 1.2 | 0.8 | 0.4 | 1245 |
 | *p_c* = 0.6, *p_m* = 0.05 | 1.3 | 0.5 | 0.4 | 0.1 | 0.1 | 1828 |
-| Tournament *k* = 7 | 0.6 | 0.3 | 0.1 | 0.1 | 0.1 | 1245 |
-| ERX, μ = 50 | 0.6 | 0.4 | 0.2 | 0.3 | 0.1 | 1245 |
-| No crossover, μ = 50 | 1.3 | 0.5 | 0.2 | 0.2 | 0.03 | 11103 |
+| Tournament *k* = 7 | 0.6 | 0.2 | 0.1 | 0.1 | 0.1 | 1245 |
+| ERX, μ = 50 | 0.6 | 0.4 | 0.2 | 0.3 | 0.1 | 1246 |
+| No crossover, μ = 50 | 1.3 | 0.5 | 0.2 | 0.1 | 0.03 | 11103 |
 
 1. **The baseline explored too much for its budget.** After 50,000 evaluations its tours were hundreds of percent above the optimum, yet its population was still diverse (gap 3–6.5% on four instances) after only 203 generations. The largest single improvement, reducing μ from 300 to 50 (Step 4), shifted the balance towards exploitation: six times more generations of selection on a smaller population.
-2. **Too much exploitation fails as well.** Every variant that made the population collapse (gap ≤ 0.7%) was worse than the tuned design: tournament sizes 3–7 (Step 5a), μ ≤ 20 (Step 4b), and ERX in a small population (Step 4). These are cases of premature convergence: once all tours are nearly identical, crossover produces copies and the search stalls. The opposite extreme, random parent selection (*k* = 1, gap up to 52%), keeps the population diverse but does not concentrate the search on good tours, and was by far the worst. The tuned design lies between the two extremes (gaps of 0.5–2.3%).
+2. **Too much exploitation fails as well.** Every variant that made the population collapse (gap ≤ 0.7%) was worse than the tuned design: tournament sizes 3–7 (Step 5a), μ ≤ 20 (Step 4b), and ERX in a small population (Step 4). These are cases of premature convergence: once all tours are nearly identical, crossover produces copies and the search stalls. The opposite extreme, random parent selection (*k* = 1, gap up to 52%), keeps the population diverse but does not concentrate the search on good tours, and was by far the worst. The tuned design lies between the two extremes (gaps of 0.4–2.3%).
 3. **The instance dependence is the same trade-off.** The small instances converge within the budget, so they benefit from *more exploration*: higher *p_c* and *p_m* (Step 5b), and self-adaptation, which raised *p_m* (Step 6). pr1002 is far from converged when the budget runs out, so it benefited from *every* more exploitative option: no crossover (Steps 3–4), μ = 30 (Step 4b), *k* = 3 (Step 5a), and low *p_c* and *p_m* (Step 5b). A larger instance needs more generations to exploit, and 50,000 evaluations provide too few. This explains why pr1002 was the outlier in almost every step, and why one fixed setting cannot suit all five instances.
 4. **Parameter control in these terms.** Self-adaptation moved every instance towards exploration (rising *p_m*), which suits the small instances but not the large ones. Uniform mixing alternates generations of conservative variation (exploitation) and disruptive variation (exploration). We *hypothesise* that this alternation is why it beats any single fixed setting, but our data does not test this directly.
 
-5. **Initialization (Step 9) in these terms.** Nearest-neighbour seeding uses problem knowledge to start the search in a good region, so that the budget is spent on exploitation from the start. Starting every tour at a different city keeps enough diversity for crossover to work. On the large instances, however, the population converges (about 1.03 distinct edges per city at the end) before the operators find many improvements.
+5. **Initialization (Step 9) in these terms.** Nearest-neighbour seeding uses problem knowledge to start the search in a good region, so that the budget is spent on exploitation from the start. Starting every tour at a different city keeps enough diversity for crossover to work. On the large instances, however, the population converges (1.08 and 1.05 distinct edges per city at the end on pcb442 and pr1002, final design, tuning seeds) before the operators find many improvements.
 
 **Limitation.** The gap measures diversity in *fitness* only. Two populations with the same gap can differ in how many distinct tours, or distinct edges, they contain. A genotypic measure, such as the number of distinct edges in the population, would test points 2 and 4 more directly. From Step 7 onwards we therefore also log the number of distinct edges in the population per city (1.0 = all tours identical). It confirms points 2 and 3: the variants that collapse the population in fitness also collapse it in edges (Table 10).
 
@@ -518,7 +518,7 @@ At the Step 8 design, *s* of the 50 initial individuals were built by the neares
 **Findings.**
 
 1. **Initialization has by far the largest effect in the whole study.** A single nearest-neighbour tour in the initial population shortens the final tours by 58% (23 of 25 runs). On pr1002 the deviation falls from 965% to 27%. Under a budget of 50,000 evaluations, where the EA starts matters more than any operator or parameter choice.
-2. **Seeding the whole population is best.** 50 NN tours are significantly better than 5 (−2.0%, *p* = 0.0004). The worry that seeding destroys diversity does not apply here: each tour starts from a different city, so the seeded tours differ, and the population keeps about 2.3 distinct edges per city on berlin52 at the end of the run.
+2. **Seeding the whole population is best.** 50 NN tours are significantly better than 5 (−2.0%, *p* = 0.0004). The worry that seeding destroys diversity does not apply here: each tour starts from a different city, so the seeded tours differ, and the population keeps about 1.8 distinct edges per city on berlin52 at the end of the run.
 3. **Parameter control no longer helps.** With a seeded start, uniform mixing is not better than fixed probabilities (*p* = 0.96 with 5 NN tours, *p* = 0.26 with 50). Its benefit in Steps 6b–8 came from searching *from random tours*. In terms of Section 5.7, a seeded population already starts in a good region and needs little exploration.
 
 **Decision (same rule as Step 8, fixed before the reporting runs):** the simplest variant not significantly worse than the best. This is **50 NN tours with fixed probabilities** (+0.47% vs the best, *p* = 0.26). This is the final design (Table 1b).
