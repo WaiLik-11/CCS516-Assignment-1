@@ -103,12 +103,19 @@ All operators come from DEAP (`deap.tools`) except edge recombination (Section 3
 
 ## 3.2 Evolutionary cycle and termination
 
-`elitism.py` extends DEAP's `eaSimple` [3] in two ways:
+`elitism.py` extends DEAP's `eaSimple` [3] in three ways:
 
 1. **Elitism.** The `HallOfFame` individuals are copied unchanged into every generation, so the best tour is never lost.
-2. **An exact evaluation budget.** The run stops after exactly 50,000 fitness evaluations, counting the initial population. Offspring that were neither crossed over nor mutated keep their fitness and cost nothing. If the last generation would overshoot the budget, only the offspring that still fit are evaluated, and the population is refilled with the best individuals of the previous generation.
+2. **An exact evaluation budget.** The run stops after at most 50,000 fitness evaluations, counting the initial population. Offspring that were neither crossed over nor mutated keep their fitness and cost nothing. If the last generation would overshoot the budget, only the offspring that still fit are evaluated, and the population is refilled with the best individuals of the previous generation.
 
 The template's generation limit (`MAX_GENERATIONS = 200`) only controls the budget indirectly. With its parameters a run happens to use about 300 + 200 × 270 × (1 − 0.1 × 0.9) ≈ 49,440 evaluations, but any change to the population size or the operator probabilities changes this number. Counting evaluations directly makes every variant use the same budget, which is required for a fair comparison.
+
+3. **Stopping at the optimum.** A run also stops as soon as its best tour reaches the known optimal length.
+
+**Termination as a design choice.** The run terminates on whichever of two criteria comes first: (1) 50,000 evaluations, the assignment's budget, or (2) the best tour reaching the known optimum. Criterion (2) is a *benchmarking* rule: it requires the optimum to be known, which is never the case in a real application. It cannot change any reported result, because elitism keeps the best tour and nothing is better than the optimum, so a run that stops early ends with the same tour it would have had after 50,000 evaluations. What it adds is a measure of speed: the number of evaluations needed to find the optimum. Only berlin52 ever reaches its optimum. Two other criteria were considered and rejected:
+
+- **Stopping on stagnation** (no improvement for *G* generations). With a fixed budget and the result measured at the end, stopping early can never improve the result; it would only save time. The convergence curves of the large instances are also still falling at 50,000 evaluations.
+- **Restarting on stagnation** (re-initializing part of a converged population). Given how strongly the populations converge (Section 5.7), this could help, but it is a new design feature rather than a termination rule, and is left as future work.
 
 ## 3.3 Candidate variation operators
 
@@ -152,14 +159,14 @@ ERX is designed specifically for the TSP: it builds children almost entirely fro
 | Probabilities *p_c*, *p_m* | Fixed, *p_c* = 0.9, *p_m* = 0.1 | Step 5b: no setting better overall. With random initialization, uniform mixing of three settings was better (Steps 6b, 7b, 8), but with nearest-neighbour initialization it is not (Step 9: *p* = 0.26 tuning, 0.063 reporting), so the simpler fixed setting is kept |
 | Population model | Generational, μ = 50, of which 5 elites (`tools.HallOfFame`) copied unchanged | Steps 4 and 4b: μ = 50 better than 300, 100, 20, 10; not significantly different from 30 |
 | Survivor selection | Offspring replace the parents; the 5 best-ever tours survive | Elitism keeps the best tour (Section 3.2) |
-| Termination | Exactly 50,000 fitness evaluations | Assignment; counted in `elitism.py` |
+| Termination | 50,000 fitness evaluations, or earlier when the known optimum is reached | Assignment budget, counted in `elitism.py`; the optimum rule cannot change the result (Section 3.2) |
 | Random seeds | Tuning: 101–105; reporting: 1–5; each run seeds `random` and NumPy | Section 4.1 |
 
 # 4. Experimental methodology
 
 ## 4.1 Protocol
 
-- **Budget:** exactly 50,000 fitness evaluations per run (checked in every run).
+- **Budget:** at most 50,000 fitness evaluations per run; exactly 50,000 unless the run reached the known optimum earlier (checked in every run).
 - **Tuning vs. reporting seeds:** all design comparisons use tuning seeds 101–105. The final results use separate seeds 1–5, so the reported numbers are not tuned on the seeds that produced them.
 - **Metrics:** best, mean, worst and standard deviation of the final tour length over the runs, and the deviation of the mean from the optimum (Section 1). Convergence curves show the best length found against the number of evaluations used.
 - **Reproducibility:** each design step is defined in `experiments.py` as a set of variants. Running a step writes `metadata.json` with the full parameters of every variant, the seeds, the exact command and the library versions, together with the per-run results (`runs.csv`), the summary (`summary.csv`) and the convergence data. Results do not depend on how many runs execute in parallel, because each run seeds itself. Any table in this report can be regenerated with the command in its `metadata.json`.
@@ -532,7 +539,7 @@ At the Step 8 design, *s* of the 50 initial individuals were built by the neares
 | pcb442 | 50778 | 58421 | 59095.2 | 59620 | 483.5 | **16.38** |
 | pr1002 | 259045 | 311547 | 312796.0 | 313703 | 895.0 | **20.75** |
 
-The best run on berlin52 finds the optimal tour (7542). Relative to the original template on the same seeds (Table 12), the deviation fell from 19.3% to 1.8% on berlin52, from 88.2% to 5.9% on eil101, from 365% to 13.4% on tsp225, from 725% to 16.4% on pcb442, and from 1544% to 20.8% on pr1002.
+On berlin52, 1 of the 5 runs finds the optimal tour (7542) and stops after 37,254 evaluations. The same design with mixed probabilities found it in 3 of 5 runs, after 19,533 evaluations on average. Relative to the original template on the same seeds (Table 12), the deviation fell from 19.3% to 1.8% on berlin52, from 88.2% to 5.9% on eil101, from 365% to 13.4% on tsp225, from 725% to 16.4% on pcb442, and from 1544% to 20.8% on pr1002.
 
 [TODO Figures: `results/step9-reporting/best_tour_nn-50-fixed_<tsp>.png` (best tour per instance) and `results/step9-reporting/convergence_<tsp>.png`.]
 

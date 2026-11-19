@@ -13,8 +13,13 @@ def _evaluate(toolbox, individuals):
     return len(individuals)
 
 
+def _reached(halloffame, target):
+    """Second termination criterion: the best individual has reached the target (minimisation)."""
+    return target is not None and halloffame.items[0].fitness.values[0] <= target
+
+
 def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None,
-                        halloffame=None, verbose=__debug__):
+                        halloffame=None, verbose=__debug__, target=None):
     """Generational EA with elitism and a hard fitness-evaluation budget.
 
     Based on DEAP's eaSimple(), with two modifications:
@@ -29,6 +34,9 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None,
       budget, only the offspring that still fit are evaluated; the rest are discarded and
       the population is refilled with the best already-evaluated individuals from the
       previous generation. The budget is therefore never exceeded.
+    * Target: if ``target`` is given (the known optimal tour length, benchmarking only), the run
+      also stops as soon as the best individual reaches it. With elitism this cannot change the
+      final result (nothing is better than the optimum); it only saves evaluations.
 
     :returns: the final population and a logbook with per-generation ``nevals`` and the
               cumulative evaluation count ``evals``.
@@ -53,7 +61,7 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None,
         print(logbook.stream)
 
     gen = 0
-    while evals < max_evals:
+    while evals < max_evals and not _reached(halloffame, target):
         gen += 1
 
         # Parent selection
@@ -167,7 +175,7 @@ def _varyWithCredit(parents, toolbox, cxpb, mutpb, sa_gamma=None):
 
 
 def eaControlledWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=None, halloffame=None,
-                            pursuit=None, sa_gamma=None, verbose=__debug__):
+                            pursuit=None, sa_gamma=None, verbose=__debug__, target=None):
     """eaSimpleWithElitism() with parameter control:
 
     * pursuit (an AdaptivePursuit): every generation picks a (cxpb, mutpb) arm. The reward is the
@@ -176,7 +184,7 @@ def eaControlledWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=N
       spent, so cheap settings (few changed, few evaluated offspring) are not penalised.
     * sa_gamma: self-adaptive mutation probability per individual (attribute `pm`; cxpb fixed).
 
-    Elitism, the exact evaluation budget and the logbook are as in eaSimpleWithElitism(); the
+    Elitism, the evaluation budget, the target and the logbook are as in eaSimpleWithElitism(); the
     logbook additionally records the arm probabilities (p_arm0, ...) or the mean `pm`.
     """
     if halloffame is None:
@@ -206,7 +214,7 @@ def eaControlledWithElitism(population, toolbox, cxpb, mutpb, max_evals, stats=N
         print(logbook.stream)
 
     gen = 0
-    while evals < max_evals:
+    while evals < max_evals and not _reached(halloffame, target):
         gen += 1
 
         # Parent selection

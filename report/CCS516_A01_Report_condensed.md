@@ -63,7 +63,9 @@ where `nint` rounds to the nearest integer, "implemented as `(int)(x + 0.5)`" in
 
 **Framework.** The given `tsp.py`, `solve_tsp.py` and `elitism.py` were extended. As given, an individual is a permutation of the city indices (`array('i')`), so every individual is a valid tour. The **fitness is the TSPLIB integer tour length**, the same measure as the optima. The template used the unrounded length, which on tsp225 differs from the TSPLIB length by 1.5% for the optimal tour (3859 vs 3916, Table 1).
 
-**Evolutionary cycle and budget.** `elitism.py` extends DEAP's `eaSimple` with **elitism**: the best tours (`tools.HallOfFame`) are copied unchanged into every generation. It also enforces an **exact budget of 50,000 evaluations**, counting the initial population. Offspring that are neither crossed over nor mutated keep their fitness and cost nothing. If the last generation would exceed the budget, only the offspring that still fit are evaluated. The template instead stopped after 200 generations, which happens to cost about 49,440 evaluations with its settings, but changes with any population size or probability. Counting evaluations gives every variant the same budget.
+**Evolutionary cycle and budget.** `elitism.py` extends DEAP's `eaSimple` with **elitism**: the best tours (`tools.HallOfFame`) are copied unchanged into every generation. It also enforces a **budget of 50,000 evaluations**, counting the initial population. Offspring that are neither crossed over nor mutated keep their fitness and cost nothing. If the last generation would exceed the budget, only the offspring that still fit are evaluated. The template instead stopped after 200 generations, which happens to cost about 49,440 evaluations with its settings, but changes with any population size or probability. Counting evaluations gives every variant the same budget.
+
+**Termination.** A run stops on whichever comes first: (1) 50,000 evaluations, or (2) its best tour reaching the known optimum. Rule (2) is for benchmarking only, since it needs the optimum to be known. It cannot change the result: elitism keeps the best tour and nothing beats the optimum, so it only saves evaluations and measures how fast the optimum is found. Stopping on stagnation was rejected: with a fixed budget, stopping early can only make the result worse, and the curves of the large instances are still falling at 50,000 evaluations. Restarting on stagnation is left as future work.
 
 **Operators considered.** TSP fitness depends on which cities are **adjacent** (the edges), not on their positions, so good operators pass on edges and change few at a time [1], [2]. All operators are from DEAP, except edge recombination and nearest-neighbour initialization. These two are not in DEAP, so we implemented them from the literature in DEAP's operator style (`operators.py`) and registered them in the toolbox like the others.
 
@@ -90,14 +92,14 @@ In our ERX, only about 3% of child edges are in neither parent. These are the kn
 | Mutation | Inversion, *p_m* = 0.1 per offspring | Step 7: better than swap at μ = 50 (−4.9%, *p* = 0.011); confirmed on the reporting seeds |
 | Population model | Generational, μ = 50, of which 5 elites | Steps 4, 4b: better than μ = 300, 100, 20, 10 |
 | Survivor selection | Offspring replace the parents; the 5 best-ever tours survive | Elitism keeps the best tour |
-| Termination | Exactly 50,000 fitness evaluations | Assignment; counted in `elitism.py` |
+| Termination | 50,000 evaluations, or earlier when the known optimum is reached | Assignment budget; the optimum rule cannot change the result |
 | Random seeds | Tuning 101–105; reporting 1–5; each run seeds `random` and NumPy | Section 4 |
 
 # 4. How the design was chosen
 
 **Protocol.** Every design decision was made by experiment: 13 steps and about 2,000 runs, all defined in `experiments.py`.
 
-- **Budget:** each run uses exactly 50,000 evaluations.
+- **Budget:** each run uses 50,000 evaluations, or fewer if it reaches the optimum first.
 - **Seeds:** all decisions use **tuning seeds 101–105**. The reported results use **separate reporting seeds 1–5**, so they are not tuned on their own seeds.
 - **Decision rule:** each step changes **one** component and adopts the winner. When variants tie, the choice is "the simplest variant not significantly worse than the best", fixed before the reporting runs.
 - **Statistics:** variants are compared on the same seeds, so each pair of runs starts from the same initial population. We report wins per instance and a two-sided **Wilcoxon signed-rank test** [21] on the 25 paired **log length ratios** (5 instances × 5 seeds). Relative differences give every instance equal weight. A per-instance test is not meaningful with 5 seeds, because the exact two-sided *p*-value cannot go below 0.0625.
@@ -194,7 +196,7 @@ The gap measures diversity in fitness only. A tour-based measure, the number of 
 
 [TODO Figure 2: best tour per instance, `results/step9-reporting/best_tour_nn-50-fixed_<tsp>.png`. Figure 3: convergence, e.g. `results/step9-reporting/convergence_pr1002.png`.]
 
-The best run on berlin52 finds the optimal tour. On the same seeds, the final design's tours are **73.9% shorter than the original template's** (25 of 25 runs, *p* = 6·10⁻⁸). The deviation falls from 19.3% to 1.8% (berlin52), 88.2% to 5.9% (eil101), 365% to 13.4% (tsp225), 725% to 16.4% (pcb442) and 1544% to 20.8% (pr1002).
+On berlin52, 1 of the 5 runs finds the optimal tour, after 37,254 evaluations. On the same seeds, the final design's tours are **73.9% shorter than the original template's** (25 of 25 runs, *p* = 6·10⁻⁸). The deviation falls from 19.3% to 1.8% (berlin52), 88.2% to 5.9% (eil101), 365% to 13.4% (tsp225), 725% to 16.4% (pcb442) and 1544% to 20.8% (pr1002).
 
 **How much is the EA, and how much the heuristic?** Table 7 compares each run's best *initial* nearest-neighbour tour with its final tour.
 

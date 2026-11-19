@@ -122,7 +122,8 @@ done
 
 Every design step is an entry in `STEPS` in `experiments.py`: a base parameter dict and a few
 variants that each change **one** component. `experiments.py <step>` runs every variant on every
-selected TSP with every seed, each run with exactly 50,000 fitness evaluations, and writes
+selected TSP with every seed. A run stops after 50,000 fitness evaluations, or earlier if it reaches
+the known optimum (only some berlin52 runs in step 9 do). Each step writes
 `results/<step>/`:
 
 - `metadata.json`: full parameters per variant, seeds, budget, command, library versions

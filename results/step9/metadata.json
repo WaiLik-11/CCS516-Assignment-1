@@ -1,6 +1,6 @@
 {
   "command": "uv run python DEAP-source-codes/experiments.py step9 --jobs 16",
-  "created": "2026-11-18T00:19:46",
+  "created": "2026-11-19T17:27:23",
   "max_evaluations": 50000,
   "step": "step9",
   "description": "Initialization: share of nearest-neighbour tours in the initial population (0 = random, as in step 8), at the step 8 design",
