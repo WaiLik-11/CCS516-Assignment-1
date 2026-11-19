@@ -2,11 +2,12 @@
 
 Each step compares a few EA variants. A variant is a set of overrides on the step's base
 parameters (a dict like solve_tsp.BASELINE). Every variant is run once per seed on every
-selected TSP, each run with exactly config.MAX_EVALUATIONS fitness evaluations.
+selected TSP. A run terminates after config.MAX_EVALUATIONS fitness evaluations, or earlier
+when it reaches the known optimal tour length (which only happens on berlin52, in step 9).
 All outputs of a step are written to results/<step>/ (results/<step>-reporting/ with --seeds reporting):
 
     metadata.json          what was run: full parameters per variant, seeds, budget, command, versions
-    runs.csv               one row per run: variant, tsp, seed, length, deviation %, evaluations, ...
+    runs.csv               one row per run: variant, tsp, seed, length, deviation %, evaluations used, ...
     summary.csv            per variant and TSP: best / mean / worst / std, deviation % of the mean
     comparison.csv         variant vs reference: wins per TSP, Wilcoxon signed-rank p-value over all runs
     convergence.csv        per run, every CONVERGENCE_STEP evaluations: best length so far, population average
@@ -268,18 +269,22 @@ def runOne(job):
     problem = getProblem(name)
 
     start = time.perf_counter()
-    best, logbook = solve_tsp.runEA(problem, params, seed)
+    optimum = config.KNOWN_OPTIMA[name]
+    # termination: MAX_EVALUATIONS evaluations, or earlier once the known optimum is reached
+    best, logbook = solve_tsp.runEA(problem, params, seed, target=optimum)
     seconds = time.perf_counter() - start
 
-    assert logbook[-1]["evals"] == config.MAX_EVALUATIONS, "run must use exactly the evaluation budget"
     length = problem.getTotalDistanceRounded(best)
-    optimum = config.KNOWN_OPTIMA[name]
+    assert logbook[-1]["evals"] == config.MAX_EVALUATIONS or (
+        length == optimum and logbook[-1]["evals"] < config.MAX_EVALUATIONS), \
+        "run must use exactly the evaluation budget, unless it reached the optimum earlier"
     run = dict(variant=variant, tsp=name, seed=seed, length=length, optimum=optimum,
                deviation_pct=round(deviation(length, optimum), 2), evals=logbook[-1]["evals"],
                generations=logbook[-1]["gen"], seconds=round(seconds, 2))
 
     # population at each grid point = the last generation finished within that many evaluations
-    # (with elitism its min is the best length found so far)
+    # (with elitism its min is the best length found so far; after an early stop at the optimum,
+    # the curve stays at the optimum)
     evals = logbook.select("evals")
     curve = []
     for e in range(0, config.MAX_EVALUATIONS + 1, CONVERGENCE_STEP):
@@ -306,6 +311,9 @@ def summarise(runs):
                          best=min(lengths), mean=round(mean, 1), worst=max(lengths),
                          std=round(statistics.stdev(lengths), 1) if len(lengths) > 1 else 0.0,
                          deviation_pct=round(deviation(mean, config.KNOWN_OPTIMA[name]), 2),
+                         # runs that found the optimum (and stopped), and their mean evaluations used
+                         optimum_hits=len(hits := [int(r["evals"]) for r in group if r["length"] == r["optimum"]]),
+                         mean_evals_to_optimum=round(statistics.mean(hits)) if hits else "",
                          mean_seconds=round(statistics.mean(r["seconds"] for r in group), 1)))
     return rows
 

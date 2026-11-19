@@ -138,8 +138,9 @@ def buildToolbox(problem, params):
 
     return toolbox
 
-def runEA(problem, params, seed, max_evals=config.MAX_EVALUATIONS, verbose=False):
-    """One independent, seeded EA run.
+def runEA(problem, params, seed, max_evals=config.MAX_EVALUATIONS, verbose=False, target=None):
+    """One independent, seeded EA run. Terminates after max_evals fitness evaluations, or earlier
+    when the best tour reaches `target` (the known optimal length; None = no target).
 
     :returns: 
         (best individual, logbook). The logbook has per generation: gen, nevals, evals (cumulative), min and avg fitness of the population.
@@ -172,19 +173,19 @@ def runEA(problem, params, seed, max_evals=config.MAX_EVALUATIONS, verbose=False
     if control is None:
         population, logbook = elitism.eaSimpleWithElitism(
             population, toolbox, cxpb=params["p_crossover"], mutpb=params["p_mutation"],
-            max_evals=max_evals, stats=stats, halloffame=hof, verbose=verbose)
+            max_evals=max_evals, stats=stats, halloffame=hof, verbose=verbose, target=target)
     elif control == "adaptive-pursuit":
         pursuit = elitism.AdaptivePursuit(params["ap_arms"], params["ap_alpha"], params["ap_beta"],
                                           params["ap_p_min"])
         population, logbook = elitism.eaControlledWithElitism(
             population, toolbox, cxpb=None, mutpb=None, max_evals=max_evals, stats=stats,
-            halloffame=hof, pursuit=pursuit, verbose=verbose)
+            halloffame=hof, pursuit=pursuit, verbose=verbose, target=target)
     elif control == "self-adaptive-pm":
         for ind in population:
             ind.pm = params["p_mutation"]  # every individual starts with the tuned rate
         population, logbook = elitism.eaControlledWithElitism(
             population, toolbox, cxpb=params["p_crossover"], mutpb=None, max_evals=max_evals,
-            stats=stats, halloffame=hof, sa_gamma=params["sa_gamma"], verbose=verbose)
+            stats=stats, halloffame=hof, sa_gamma=params["sa_gamma"], verbose=verbose, target=target)
     else:
         raise ValueError(f"unknown control {control!r}")
 
@@ -196,7 +197,8 @@ def runEA(problem, params, seed, max_evals=config.MAX_EVALUATIONS, verbose=False
 def main():
     name = config.parse_tsp_names("Single run of the final EA design (reporting seed 1)")[0]
     problem = TravelingSalesmanProblem(name)
-    best, logbook = runEA(problem, FINAL_DESIGN, seed=config.RANDOM_SEEDS[0], verbose=True)
+    best, logbook = runEA(problem, FINAL_DESIGN, seed=config.RANDOM_SEEDS[0], verbose=True,
+                          target=config.KNOWN_OPTIMA[name])
 
     optimum = config.KNOWN_OPTIMA[name]
     length = best.fitness.values[0]
