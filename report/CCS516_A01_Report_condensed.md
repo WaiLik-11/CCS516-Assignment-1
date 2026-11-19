@@ -86,7 +86,7 @@ We use the enhanced ERX [12], which gives priority to edges present in both pare
 
 | Component | Final choice | Evidence |
 |---|---|---|
-| Initialization | 50 nearest-neighbour tours from 50 distinct random start cities | Step 9: tours 59.7% shorter than with random initialization (reporting seeds, *p* = 10⁻⁷) |
+| Initialization | 50 nearest-neighbour tours from 50 distinct random start cities | Step 9: tours 59.5% shorter than with random initialization (reporting seeds, 25 of 25 runs, *p* = 6·10⁻⁸) |
 | Parent selection | Tournament, *k* = 2 | Step 5a: better than *k* = 1, 3, 5, 7 (all *p* < 0.001) |
 | Crossover | OX, *p_c* = 0.9 per pair | Steps 3, 4, 7: PMX, UPMX, ERX and no crossover significantly worse at μ = 50 |
 | Mutation | Inversion, *p_m* = 0.1 per offspring | Step 7: better than swap at μ = 50 (−4.9%, *p* = 0.011); confirmed on the reporting seeds |
@@ -97,7 +97,7 @@ We use the enhanced ERX [12], which gives priority to edges present in both pare
 
 # 4. How the design was chosen
 
-**Protocol.** Every design decision was made by experiment: 13 steps and about 2,000 runs, all defined in `experiments.py`.
+**Protocol.** Every design decision was made by experiment, in nine steps (Steps 1–9). Steps 4, 6 and 7 have a follow-up (4b, 6b, 7b) and Step 5 has two parts (5a, 5b), so there are 13 experiments, all defined in `experiments.py`. With the final runs of Step 9 on the reporting seeds, this makes 2,050 runs.
 
 - **Budget:** each run uses 50,000 evaluations, or fewer if it reaches the optimum first.
 - **Seeds:** all decisions use **tuning seeds 101–105**. The reported results use **separate reporting seeds 1–5**, so they are not tuned on their own seeds.
@@ -111,11 +111,11 @@ We use the enhanced ERX [12], which gives priority to edges present in both pare
 
 ## 5.1 Baseline
 
-The baseline keeps the template's operators and parameters: OX with *p_c* = 0.9, swap mutation with *p_m* = 0.1, *k* = 2, μ = 300 with 30 elites, and random initialization. Only the generation limit is replaced by the evaluation budget. On the tuning seeds it ends 14.8%, 83.7%, 360%, 745% and 1507% above the optimum. For comparison, the best of 300 random tours is 221%, 386%, 856%, 1332% and 2282% above it. The EA improves on random tours, but less and less as the instance grows. The convergence curves are still falling steeply at 50,000 evaluations: the search is far from converged.
+The baseline keeps the template's operators and parameters: OX with *p_c* = 0.9, swap mutation with *p_m* = 0.1, *k* = 2, μ = 300 with 30 elites, and random initialization. Only the generation limit is replaced by the evaluation budget. On the tuning seeds it ends 14.8%, 83.7%, 360%, 745% and 1507% above the optimum. For comparison, the best of 300 random tours is 223%, 380%, 874%, 1333% and 2288% above it. The EA improves on random tours, but less and less as the instance grows. The convergence curves are still falling steeply at 50,000 evaluations: the search is far from converged.
 
 ## 5.2 The design path
 
-Table 3 summarises the decisions. Each row is a design step on the tuning seeds; the full tables are in `results/<step>/` and the README step log.
+Table 3 summarises the decisions. Each row is a design step on the tuning seeds, except Step 8; the full tables are in `results/<step>/` and the README step log.
 
 **Table 3.** Design steps. "Rel. diff." is the pooled relative difference in tour length (negative = shorter tours), with the Wilcoxon *p*-value.
 
@@ -155,7 +155,7 @@ Step 5b showed that the instances prefer **opposite** probabilities. With *p_c* 
 | **Uniform mix (no learning, control)** | +3.7%, −5.2% | −1.3%, −2.7% | −1.4% | 0.039 |
 
 - **Self-adaptation raised *p_m* on every instance** (from 0.1 to 0.19–0.31). That suits the small instances but not pr1002, which prefers *less* mutation. Selection between individuals cannot see that unchanged offspring cost no evaluations.
-- **Adaptive pursuit looked successful at a low learning rate.** But a control variant that **mixes the same three settings at random, without learning**, was just as good: no pursuit variant beat it (best *p* = 0.28), and the arm probabilities stayed near 1/3 throughout. **The gain came from alternating settings, not from learning.** After a Bonferroni correction for the five controller variants, none of these gains is significant.
+- **Adaptive pursuit looked successful at a low learning rate.** But a control variant that **mixes the same three settings at random, without learning**, was just as good: no pursuit variant beat it (best *p* = 0.28), and the arm probabilities fluctuated around 1/3 without settling on any setting. **The gain came from alternating settings, not from learning.** After a Bonferroni correction for the five controller variants, none of these gains is significant.
 
 Uniform mixing was confirmed with inversion (Step 7b: −1.85%, *p* = 0.022) and on the reporting seeds (Step 8: −2.0%, *p* = 0.045). Once the population was seeded with nearest-neighbour tours, however, mixing no longer helped (Step 9: *p* = 0.26), so the final design uses fixed probabilities.
 
@@ -171,7 +171,7 @@ One trade-off explains most findings [25], [26]. As a simple measure, we use how
 |---|---|---|---|
 | *k* = 1 (random parents) | 52.2 | 7.9 | 4.0 |
 | Baseline (μ = 300) | 6.0 | 3.0 | 1.3 |
-| **Design after Step 5 (μ = 50, *k* = 2)** | 2.3 | 0.8 | 0.5 |
+| **Design after Step 5 (μ = 50, *k* = 2)** | 2.3 | 0.8 | 0.4 |
 | *k* = 7 | 0.6 | 0.1 | 0.1 |
 | ERX, μ = 50 | 0.6 | 0.3 | 0.1 |
 
@@ -180,7 +180,7 @@ One trade-off explains most findings [25], [26]. As a simple measure, we use how
 - **The instances differ in the same way.** The small instances converge within the budget and gain from *more exploration* (higher *p_c*, *p_m*; self-adaptation). pr1002 is far from converged and gained from *every* more exploitative option: no crossover, μ = 30, *k* = 3, lower *p_c* and *p_m*.
 - **Nearest-neighbour seeding** uses problem knowledge to start in a good region, so the budget goes into exploitation from the start, while 50 different start cities keep the tours diverse.
 
-The gap measures diversity in fitness only. A tour-based measure, the number of distinct edges per city (logged from Step 7), confirms that the collapsing variants also collapse in edges.
+The gap measures diversity in fitness only. A tour-based measure, the number of distinct edges per city (logged in every step), confirms that the collapsing variants also collapse in edges.
 
 ## 5.5 Final results
 
