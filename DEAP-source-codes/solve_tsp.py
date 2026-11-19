@@ -81,7 +81,6 @@ def edgeDiversity(population):
     edges = np.minimum(a, b) * n + np.maximum(a, b)
     return np.unique(edges).size / n
 
-
 class PopulationStatistics(tools.Statistics):
     """DEAP Statistics on the fitness values, plus the edge diversity of the whole population."""
 
@@ -93,7 +92,6 @@ class PopulationStatistics(tools.Statistics):
         record = super().compile(population)
         record["edges"] = edgeDiversity(population)
         return record
-
 
 def tspDistance(individual, problem: TravelingSalesmanProblem):
     """Fitness: TSPLIB tour length (each edge rounded to the nearest integer), minimised."""
@@ -157,8 +155,7 @@ def runEA(problem, params, seed, max_evals=config.MAX_EVALUATIONS, verbose=False
     population = toolbox.populationCreator(n=params["population_size"] - n_nn)
     if n_nn:
         starts = random.sample(range(len(problem)), n_nn)
-        population += [creator.Individual(operators.nearestNeighbourTour(problem.distancesRounded, s))
-                       for s in starts]
+        population += [creator.Individual(operators.nearestNeighbourTour(problem.distancesRounded, s)) for s in starts]
 
     # prepare the statistics object:
     stats = PopulationStatistics()
@@ -175,8 +172,7 @@ def runEA(problem, params, seed, max_evals=config.MAX_EVALUATIONS, verbose=False
             population, toolbox, cxpb=params["p_crossover"], mutpb=params["p_mutation"],
             max_evals=max_evals, stats=stats, halloffame=hof, verbose=verbose, target=target)
     elif control == "adaptive-pursuit":
-        pursuit = elitism.AdaptivePursuit(params["ap_arms"], params["ap_alpha"], params["ap_beta"],
-                                          params["ap_p_min"])
+        pursuit = elitism.AdaptivePursuit(params["ap_arms"], params["ap_alpha"], params["ap_beta"], params["ap_p_min"])
         population, logbook = elitism.eaControlledWithElitism(
             population, toolbox, cxpb=None, mutpb=None, max_evals=max_evals, stats=stats,
             halloffame=hof, pursuit=pursuit, verbose=verbose, target=target)
@@ -197,13 +193,11 @@ def runEA(problem, params, seed, max_evals=config.MAX_EVALUATIONS, verbose=False
 def main():
     name = config.parse_tsp_names("Single run of the final EA design (reporting seed 1)")[0]
     problem = TravelingSalesmanProblem(name)
-    best, logbook = runEA(problem, FINAL_DESIGN, seed=config.RANDOM_SEEDS[0], verbose=True,
-                          target=config.KNOWN_OPTIMA[name])
+    best, logbook = runEA(problem, FINAL_DESIGN, seed=config.RANDOM_SEEDS[0], verbose=True, target=config.KNOWN_OPTIMA[name])
 
     optimum = config.KNOWN_OPTIMA[name]
     length = best.fitness.values[0]
-    print(f"-- {name}: best length = {length:.0f}, optimum = {optimum}, "
-          f"deviation = {100 * (length - optimum) / optimum:.2f}%, evaluations = {logbook[-1]['evals']}")
+    print(f"-- {name}: best length = {length:.0f}, optimum = {optimum}, deviation = {100 * (length - optimum) / optimum:.2f}%, evaluations = {logbook[-1]['evals']}")
 
 if __name__ == "__main__":
     main()
