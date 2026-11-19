@@ -96,8 +96,9 @@ def nearestNeighbourTour(distances, start):
     tour = [start]
     visited[start] = True
     for _ in range(n - 1):
-        row = np.where(visited, np.iinfo(np.int64).max, distances[tour[-1]])
-        nxt = int(np.argmin(row))
+        current = tour[-1]
+        unvisited = np.where(~visited)[0]
+        nxt = unvisited[np.argmin(distances[current, unvisited])]
         tour.append(nxt)
         visited[nxt] = True
     return tour
