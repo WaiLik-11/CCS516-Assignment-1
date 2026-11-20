@@ -9,6 +9,7 @@ PLOTS_DIR = ROOT_DIR / "plots"
 RESULTS_DIR = ROOT_DIR / "results"
 
 TSP_NAMES = ["berlin52", "eil101", "tsp225", "pcb442", "pr1002"]
+KNOWN_OPTIMA = {"berlin52": 7542, "eil101": 629, "tsp225": 3916, "pcb442": 50778, "pr1002": 259045}
 
 # EA settings
 MAX_EVALUATIONS = 50_000

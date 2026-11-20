@@ -172,20 +172,40 @@ class TravelingSalesmanProblem:
 # testing the class:
 def main():
     config.PLOTS_DIR.mkdir(exist_ok=True)
+    header = (
+        f"{'TSP':<10}{'cities':>7}{'TSP-BEST':>10}{'TSPLIB nint':>13}{'round()/edge':>14}"
+        f"{'round(total)':>14}{'unrounded':>12}{'x.5 edges':>11}"
+    )
+    table_lines = [header]
+    print(header)
+
     for name in config.parse_tsp_names("Plot optimal tours"):
         tsp = TravelingSalesmanProblem(name)
         tour = tsp.loadTour()
         assert sorted(tour) == list(range(len(tsp))), "tour must be a valid permutation"
-        print(
-            f"{name}: {len(tsp)} cities, "
-            f"length = {tsp.getTotalDistance(tour):.2f}, "
-            f"optimal (TSPLIB, rounded) = {tsp.getTotalDistanceRounded(tour)}"
+
+        n = len(tour)
+        edges = [tsp.distances[tour[i]][tour[(i + 1) % n]] for i in range(n)]
+        tsplib_length = sum(int(edge + 0.5) for edge in edges)
+        row = (
+            f"{name:<10}{n:>7}{config.KNOWN_OPTIMA[name]:>10}{tsplib_length:>13}"
+            f"{tsp.getTotalDistanceRounded(tour):>14}"
+            f"{round(sum(edges)):>14}"
+            f"{sum(edges):>12.2f}"
+            f"{sum(1 for edge in edges if abs(edge % 1 - 0.5) < 1e-9):>11}"
         )
+        print(row)
+        table_lines.append(row)
 
         plot = tsp.plotData(tour)
         plot.title(f"{name} optimal tour")
         plot.savefig(config.PLOTS_DIR / f"{name}_opt.png", dpi=150)
         plot.close()
+
+    output_path = config.RESULTS_DIR / "optimal_length.txt"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(table_lines) + "\n", encoding="utf-8")
+    print(f"\nSaved table to {output_path.relative_to(config.ROOT_DIR)}")
 
 
 if __name__ == "__main__":
