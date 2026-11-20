@@ -192,15 +192,17 @@ The baseline keeps the operators and parameters of the original template (OX wit
 
 **Table 2.** Step 1 baseline, tuning seeds 101–105.
 
-| Instance | Optimum | Best | Mean | Worst | Std | Deviation % |
-|---|---|---|---|---|---|---|
-| berlin52 | 7542 | 8460 | 8659.8 | 9022 | 243.0 | 14.82 |
-| eil101 | 629 | 1069 | 1155.4 | 1259 | 77.8 | 83.69 |
-| tsp225 | 3916 | 17607 | 18023.6 | 18291 | 281.0 | 360.26 |
-| pcb442 | 50778 | 414058 | 429289.6 | 436732 | 9275.6 | 745.42 |
-| pr1002 | 259045 | 4111551 | 4163176 | 4224493 | 44063.5 | 1507.12 |
+| Instance | Optimum | Best | Mean | Worst | Std | Deviation % | Random start, deviation %* |
+|---|---|---|---|---|---|---|---|
+| berlin52 | 7542 | 8460 | 8659.8 | 9022 | 243.0 | 14.82 | 223 |
+| eil101 | 629 | 1069 | 1155.4 | 1259 | 77.8 | 83.69 | 380 |
+| tsp225 | 3916 | 17607 | 18023.6 | 18291 | 281.0 | 360.26 | 874 |
+| pcb442 | 50778 | 414058 | 429289.6 | 436732 | 9275.6 | 745.42 | 1333 |
+| pr1002 | 259045 | 4111551 | 4163176 | 4224493 | 44063.5 | 1507.12 | 2288 |
 
-To put these numbers in context, the best of 300 random tours (the size of the initial population) lies 223%, 380%, 874%, 1333% and 2288% above the optimum for the five instances, in the same order. The baseline improves on random tours, but the improvement shrinks quickly as the instance grows. The convergence curves are still falling steeply at 50,000 evaluations [TODO Figure 2: `results/step1/convergence_pcb442.png`], so the search is far from converged when the budget runs out.
+\*Best tour in the random initial population (300 tours), mean over the 5 seeds (`results/step1/convergence.csv`, first checkpoint).
+
+The last column shows where the search starts. On berlin52 the EA reduces the deviation from 223% to 15%. On pr1002 it only reduces it from 2288% to 1507%, so the improvement shrinks quickly as the instance grows. The convergence curves are still falling steeply at 50,000 evaluations [TODO Figure 2: `results/step1/convergence_pcb442.png`], so the search is far from converged when the budget runs out.
 
 Three reasons are likely, each tested in a later step:
 

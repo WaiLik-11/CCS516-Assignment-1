@@ -111,7 +111,7 @@ We use the enhanced ERX [12], which gives priority to edges present in both pare
 
 ## 5.1 Baseline
 
-The baseline keeps the template's operators and parameters: OX with *p_c* = 0.9, swap mutation with *p_m* = 0.1, *k* = 2, μ = 300 with 30 elites, and random initialization. Only the generation limit is replaced by the evaluation budget. On the tuning seeds it ends 14.8%, 83.7%, 360%, 745% and 1507% above the optimum. For comparison, the best of 300 random tours is 223%, 380%, 874%, 1333% and 2288% above it. The EA improves on random tours, but less and less as the instance grows. The convergence curves are still falling steeply at 50,000 evaluations: the search is far from converged.
+The baseline keeps the template's operators and parameters: OX with *p_c* = 0.9, swap mutation with *p_m* = 0.1, *k* = 2, μ = 300 with 30 elites, and random initialization. Only the generation limit is replaced by the evaluation budget. On the tuning seeds it ends 14.8%, 83.7%, 360%, 745% and 1507% above the optimum. The search starts from the best tour in the random initial population, which is 223%, 380%, 874%, 1333% and 2288% above the optimum (mean over the 5 seeds). So the EA reduces the deviation from 223% to 15% on berlin52, but only from 2288% to 1507% on pr1002: the improvement shrinks as the instance grows. The convergence curves are still falling steeply at 50,000 evaluations: the search is far from converged.
 
 ## 5.2 The design path
 
