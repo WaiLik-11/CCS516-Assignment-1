@@ -117,26 +117,26 @@ The baseline keeps the template's operators and parameters: OX with *p_c* = 0.9,
 
 Table 3 summarises the decisions. Each row is a design step on the tuning seeds, except Step 8; the full tables are in `results/<step>/` and the README step log.
 
-**Table 3.** Design steps. "Rel. diff." is the pooled relative difference in tour length (negative = shorter tours), with the Wilcoxon *p*-value.
+**Table 3.** Design steps. Percentages in "Key result" are pooled relative differences in tour length of a variant against the step's reference (the design so far, unless "vs" names another), with the Wilcoxon *p*-value; negative = shorter tours.
 
 | Step | Question | Key result | Decision |
 |---|---|---|---|
-| 2 | Mutation (μ = 300) | Inversion vs swap: +2.95%, *p* = 0.026; *p_m* 0.5 worse than 0.1 on all 10 comparisons | Keep swap |
-| 3 | Crossover (μ = 300) | PMX +19.3%, UPMX +13.9% (*p* < 10⁻⁶); ERX −19.9% (*p* = 2·10⁻⁷); no crossover −10.2%, but with 9× more generations | Drop PMX and UPMX; decide OX vs ERX with μ |
-| 4, 4b | Population size μ × crossover | OX, μ = 50 vs 300: −30.1% (*p* = 2·10⁻⁶); at μ = 50, ERX +16.5% and no crossover +8.9% vs OX; μ = 30 tied, μ ≤ 20 worse | OX, μ = 50, 5 elites |
-| 5a | Tournament size | *k* = 1: +66.9%, *k* = 3: +8.9%, *k* = 5: +22.9% vs *k* = 2 (all *p* < 0.001) | *k* = 2 |
+| 2 | Mutation (μ = 300) | Tested in 3 settings (OX *p_m* = 0.1 and 0.5, ERX): inversion never significantly better; worse with OX, *p_m* = 0.1 (+2.95%, *p* = 0.026). *p_m* 0.5 worse than 0.1 on all 10 comparisons | Keep swap |
+| 3 | Crossover (μ = 300) | PMX +19.3%, UPMX ≥ +13.9% (*p* < 10⁻⁶); ERX −19.9% (*p* = 2·10⁻⁷); no crossover −10.2% (*p* = 0.002), but with 1842 instead of 203 generations | Drop PMX, UPMX; carry OX, ERX and no crossover (control) to Step 4 |
+| 4, 4b | Population size μ × crossover | OX, μ = 50 vs 300: −30.1% (*p* = 2·10⁻⁶); at μ = 50, ERX +16.5% and no crossover +8.9% vs OX; μ = 30 not significantly different (+2.8%, *p* = 0.16), μ ≤ 20 worse | OX, μ = 50, 5 elites |
+| 5a | Tournament size | *k* = 1: +66.9%, *k* = 3: +8.9%, *k* = 5: +22.9%, *k* = 7: +32.2% vs *k* = 2 (all *p* < 0.001) | *k* = 2 |
 | 5b | *p_c* × *p_m* grid | No setting significantly different (all *p* ≥ 0.096); small instances prefer more variation, pr1002 less | Keep 0.9 / 0.1 |
 | 6, 6b | Parameter control | See Section 5.3 | Uniform mix |
 | 7, 7b | Verification at μ = 50 | **Inversion vs swap: −4.88%, *p* = 0.011** (reversed from Step 2); OX confirmed | Inversion |
 | 8 | Check on the reporting seeds (random initialization; not the final design) | vs fixed probabilities −2.0% (*p* = 0.045); inversion vs swap −3.6% (*p* = 0.048); per-instance tuning no better (*p* = 0.85) | Confirms Steps 6b–7b |
-| 9 | Initialization | Nearest-neighbour seeding −58.7% (*p* < 10⁻⁶); 50 vs 5 seeded tours −2.0% (*p* = 0.0004); mixing no longer helps (*p* = 0.26) | 50 NN tours, fixed probabilities |
+| 9 | Initialization | Nearest-neighbour seeding −58.7% (*p* < 10⁻⁶); 50 vs 5 seeded tours −2.0% (*p* = 0.0004); fixed vs mixed probabilities +0.47% (*p* = 0.26), so the simpler fixed setting is kept | 50 NN tours, fixed probabilities |
 
 The main findings, in order of importance:
 
 1. **Initialization matters most (Step 9).** Under this budget, where the EA starts matters more than any operator. Even a single nearest-neighbour tour in the initial population reduces pr1002's deviation from 965% to 27%. Seeding all 50 tours from different start cities is best.
-2. **The number of generations is the next largest factor (Steps 3–4).** Reducing μ from 300 to 50 gives six times more generations within the budget and 30% shorter tours. It also explains a confound in Step 3: "no crossover" seemed best only because its unchanged offspring cost no evaluations, so it completed 1842 instead of 203 generations.
-3. **Edge-preserving operators win, but their merit depends on the rest of the design.** Operators that preserve positions (PMX, UPMX) are clearly worse than OX, which preserves adjacency, as the literature predicts [2], [12]. ERX, designed for the TSP, was the best crossover at μ = 300 (better than OX on all five instances) but significantly the worst at μ = 50. In a small population it makes all tours nearly identical (final diversity ≈ 1.04–1.15 distinct edges per city, where 1.0 means all tours are the same), so crossover only produces copies.
-4. **The order of the steps mattered (Step 7).** Swap beat inversion at μ = 300 (Step 2), but inversion beat swap at μ = 50 (Step 7). Without the verification step the final design would have kept the wrong mutation, which gives 3.6% longer tours on the reporting seeds.
+2. **The number of generations is the next largest factor (Steps 3–4).** Reducing μ from 300 to 50 gives six times more generations within the budget and 30% shorter tours. It also explains a confound in Step 3: "no crossover" seemed best only because its unchanged offspring cost no evaluations, so it completed 1842 instead of 203 generations. Step 3 therefore could not separate the crossovers, and Step 4 varied μ together with the crossover.
+3. **Edge-preserving operators win, but their merit depends on the rest of the design.** Operators that preserve positions (PMX, UPMX) are clearly worse than OX, which preserves adjacency, as the literature predicts [2], [12]. ERX, designed for the TSP, was the best crossover at μ = 300 (better than OX on all five instances) but significantly worse than OX at μ = 50 (+16.5%, *p* = 6·10⁻⁸). In a small population it makes all tours nearly identical (final diversity ≈ 1.04–1.15 distinct edges per city, where 1.0 means all tours are the same), so crossover only produces copies.
+4. **The order of the steps mattered (Step 7).** Swap beat inversion at μ = 300 (Step 2), but inversion beat swap at μ = 50 (Step 7). Without the verification step the final design would have kept the wrong mutation: on the reporting seeds, inversion gives 3.6% shorter tours than swap (Step 8).
 
 ## 5.3 Parameter control and instance dependence
 
@@ -157,7 +157,7 @@ Step 5b showed that the instances prefer **opposite** probabilities. With *p_c* 
 - **Self-adaptation raised *p_m* on every instance** (from 0.1 to 0.19–0.31). That suits the small instances but not pr1002, which prefers *less* mutation. Selection between individuals cannot see that unchanged offspring cost no evaluations.
 - **Adaptive pursuit looked successful at a low learning rate.** But a control variant that **mixes the same three settings at random, without learning**, was just as good: no pursuit variant beat it (best *p* = 0.28), and the arm probabilities fluctuated around 1/3 without settling on any setting. **The gain came from alternating settings, not from learning.** After a Bonferroni correction for the five controller variants, none of these gains is significant.
 
-Uniform mixing was confirmed with inversion (Step 7b: −1.85%, *p* = 0.022) and on the reporting seeds (Step 8: −2.0%, *p* = 0.045). Once the population was seeded with nearest-neighbour tours, however, mixing no longer helped (Step 9: *p* = 0.26), so the final design uses fixed probabilities.
+Uniform mixing was confirmed with inversion (Step 7b: −1.85%, *p* = 0.022) and on the reporting seeds (Step 8: −2.0%, *p* = 0.045). Once the population was seeded with nearest-neighbour tours, however, the gain from mixing shrank to 0.47% and was no longer significant (Step 9: *p* = 0.26). By the decision rule, the final design therefore uses the simpler fixed probabilities.
 
 **One design or one per instance?** The No Free Lunch theorem [24] states that no algorithm is best *averaged over all problems*. It does not require a separate design per instance of one problem class. Choosing the best probabilities per instance looked up to 8% better on single instances on the tuning seeds (Step 5b). But a design with *p_m* tuned per instance was not better than the shared design on the reporting seeds (Step 8, *p* = 0.85). With five tuning seeds, the per-instance choices mostly fitted noise.
 
@@ -176,7 +176,8 @@ One trade-off explains most findings [25], [26]. As a simple measure, we use how
 | ERX, μ = 50 | 0.6 | 0.3 | 0.1 |
 
 - **The baseline explored too much** for its budget: it was still diverse after 203 generations. The largest operator-level gain (μ = 50) shifted it towards exploitation.
-- **Too much exploitation failed too.** Larger tournaments, μ ≤ 20 and ERX in a small population all collapsed the population and were worse. The chosen design sits between the extremes.
+- **Too much exploitation failed too.** Larger tournaments (Step 5a: *k* = 3, 5, 7 gave 9–32% longer tours than *k* = 2), μ ≤ 20 and ERX in a small population all collapsed the population and were worse.
+- **No selection pressure fails as well.** With random parents (*k* = 1) the population stays diverse (52% gap on berlin52), but the search is not focused on good tours: it was the worst variant of all (+66.9%). *k* = 2 sits between the extremes.
 - **The instances differ in the same way.** The small instances converge within the budget and gain from *more exploration* (higher *p_c*, *p_m*; self-adaptation). pr1002 is far from converged and gained from *every* more exploitative option: no crossover, μ = 30, *k* = 3, lower *p_c* and *p_m*.
 - **Nearest-neighbour seeding** uses problem knowledge to start in a good region, so the budget goes into exploitation from the start, while 50 different start cities keep the tours diverse.
 
@@ -222,7 +223,7 @@ Three lessons transfer to these problems: choose operators by what the fitness d
 
 1. **Rounding and measurement.** Python's `round()` (halves to even), rounding the total instead of each edge, and an unrounded fitness compared with integer optima all give wrong lengths (Table 1). We check that the five optimal tours reproduce TSP-BEST exactly.
 2. **Budget accounting.** The template limited generations, not evaluations. Unchanged offspring are free under DEAP's `varAnd`, which made "no crossover" look best in Step 3 until we looked at the generation counts.
-3. **Interactions and order.** ERX was best at μ = 300 and worst at μ = 50; swap was best at μ = 300 and inversion at μ = 50. Testing one component at a time is only safe with a verification step.
+3. **Interactions and order.** ERX was best at μ = 300 but worse than OX at μ = 50; swap was best at μ = 300 and inversion at μ = 50. Testing one component at a time is only safe with a verification step.
 4. **The untested default mattered most.** Initialization was kept as given until Step 9, but it had by far the largest effect. And crediting the result correctly required comparing the EA with the heuristic it starts from (Table 7).
 5. **Statistics.** With 5 seeds, a per-instance Wilcoxon test can never reach *p* < 0.05. Our first pooled test used differences in deviation %, which let pr1002 dominate. Switching to log length ratios changed several *p*-values, though no decision. Opposite effects on different instances can also cancel out in a pooled test (Step 5b), so we always read the per-instance wins as well.
 6. **Testing our own hypotheses.** Two of our predictions were wrong: that inversion would beat swap from the start, and that a per-evaluation reward would make adaptive pursuit learn pr1002's preference. Only a control variant (uniform mix) showed that the controller's learning contributed nothing. We also replaced an early, well-performing but custom "guided inversion" operator with DEAP and literature operators, so that every choice can be justified by a source.
