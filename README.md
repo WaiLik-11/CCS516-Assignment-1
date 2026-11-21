@@ -19,7 +19,7 @@ Group 02, CCS516 Computational Intelligence, Semester 1, 2026/2027, Universiti S
 | 2 | Compute the optimal tour lengths (TSPLIB rounding) | [tsp.py](DEAP-source-codes/tsp.py) | [results/optimal_length.txt](results/optimal_length.txt) |
 | 3 | Design the EA, tune it step by step, and report the final results | [solve_tsp.py](DEAP-source-codes/solve_tsp.py), [elitism.py](DEAP-source-codes/elitism.py), [experiments.py](DEAP-source-codes/experiments.py) | [results/](results/) |
 
-The full write-up (algorithm, experiments, results, problems and pitfalls) is in [results-report/CCS516_A01_Report.md](results-report/CCS516_Group02_A01.pdf).
+The full write-up (algorithm, experiments, results, problems and pitfalls) is in [CCS516_Group02_A01.pdf](CCS516_Group02_A01.pdf). A markdown draft of the same report is in [results-report/](results-report/CCS516_A01_Report.md).
 
 ## 2. Required Software
 
@@ -139,6 +139,7 @@ done
 ```
 CCS516-Assignment-1/
 ├── README.md
+├── CCS516_Group02_A01.pdf            # the final report
 ├── pyproject.toml, uv.lock           # pinned dependencies (uv)
 ├── .python-version                   # Python 3.12
 ├── DEAP-source-codes/
@@ -151,7 +152,7 @@ CCS516-Assignment-1/
 ├── tsp-data/                         # .tsp city coordinates and .opt.tour optimal tours
 ├── plots/                            # optimal-tour PNGs (Task 1)
 ├── results/                          # optimal_length.txt and one folder per design step
-└── results-report/                   # the full report
+└── results-report/                   # markdown draft of the report
 ```
 
 `tsp-data/*.pickle` files are caches of the distance matrices. They are created on the first run and are git-ignored. Delete them after changing the distance code.
