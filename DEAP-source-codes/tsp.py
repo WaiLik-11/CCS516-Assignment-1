@@ -47,12 +47,10 @@ class TravelingSalesmanProblem:
 
         # attempt to read serialized data:
         try:
-            self.locations = pickle.load(
-                open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "rb")
-            )
-            self.distances = pickle.load(
-                open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "rb")
-            )
+            with open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "rb") as f:
+                self.locations = pickle.load(f)
+            with open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "rb") as f:
+                self.distances = pickle.load(f)
         except (OSError, IOError):
             pass
 
@@ -62,6 +60,11 @@ class TravelingSalesmanProblem:
 
         # set the problem 'size':
         self.tspSize = len(self.locations)
+
+        # TSPLIB EUC_2D distances: dij = nint(sqrt(xd*xd + yd*yd)), nint(x) = (int)(x + 0.5) as in C.
+        # Python's round() would be wrong here: it rounds halves to even (round(28.5) == 28).
+        # astype() truncates like a C cast, which is correct because distances are >= 0.
+        self.distancesRounded = (np.asarray(self.distances) + 0.5).astype(np.int64)
 
     def __createData(self):
         """Reads the desired TSP file from the Internet, extracts the city coordinates, calculates the distances
@@ -102,14 +105,10 @@ class TravelingSalesmanProblem:
                     self.distances[j][i] = distance
 
             # serialize locations and distances:
-            pickle.dump(
-                self.locations,
-                open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "wb"),
-            )
-            pickle.dump(
-                self.distances,
-                open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "wb"),
-            )
+            with open(os.path.join(self.data_path, f"{self.name}-loc.pickle"), "wb") as f:
+                pickle.dump(self.locations, f)
+            with open(os.path.join(self.data_path, f"{self.name}-dist.pickle"), "wb") as f:
+                pickle.dump(self.distances, f)
 
     def getTotalDistance(self, indices):
         """Calculates the total distance of the path described by the given indices of the cities
@@ -127,12 +126,12 @@ class TravelingSalesmanProblem:
         return distance
 
     def getTotalDistanceRounded(self, indices):
-        """TSPLIB EUC_2D length: round each edge to the nearest integer, then sum."""
-        total = 0
-        for i in range(len(indices)):
-            a, b = indices[i], indices[(i + 1) % len(indices)]
-            total += round(self.distances[a][b])
-        return total
+        """TSPLIB EUC_2D length: round each edge to the nearest integer, then sum.
+
+        Used as the EA fitness, so the EA optimises the same quantity as the known optima.
+        """
+        tour = np.asarray(indices)
+        return int(self.distancesRounded[tour, np.roll(tour, -1)].sum())
 
     def plotData(self, indices):
         """plots the path described by the given indices of the cities
@@ -173,12 +172,11 @@ class TravelingSalesmanProblem:
 def main():
     config.PLOTS_DIR.mkdir(exist_ok=True)
     header = (
-        f"{'TSP':<10}{'cities':>7}{'TSP-BEST':>10}{'TSPLIB nint':>13}{'round()/edge':>14}"
-        f"{'round(total)':>14}{'unrounded':>12}{'x.5 edges':>11}"
+        "| Instance | Cities | Optimal length (TSPLIB nint) | TSP-BEST "
+        "| Unrounded sum | Edges ending in exactly .5 |"
     )
-    table_lines = [header]
-    print(header)
-
+    table_lines = [header, "|---|---|---|---|---|---|"]
+    print("\n".join(table_lines))
     for name in config.parse_tsp_names("Plot optimal tours"):
         tsp = TravelingSalesmanProblem(name)
         tour = tsp.loadTour()
@@ -186,19 +184,18 @@ def main():
 
         n = len(tour)
         edges = [tsp.distances[tour[i]][tour[(i + 1) % n]] for i in range(n)]
-        tsplib_length = sum(int(edge + 0.5) for edge in edges)
+        length = tsp.getTotalDistanceRounded(tour)
+        assert length == config.KNOWN_OPTIMA[name], "must equal the known optimum"
+        half_edges = sum(1 for edge in edges if abs(edge % 1 - 0.5) < 1e-9)
         row = (
-            f"{name:<10}{n:>7}{config.KNOWN_OPTIMA[name]:>10}{tsplib_length:>13}"
-            f"{tsp.getTotalDistanceRounded(tour):>14}"
-            f"{round(sum(edges)):>14}"
-            f"{sum(edges):>12.2f}"
-            f"{sum(1 for edge in edges if abs(edge % 1 - 0.5) < 1e-9):>11}"
+            f"| {name} | {n} | {length} | {config.KNOWN_OPTIMA[name]} "
+            f"| {sum(edges):.2f} | {half_edges} |"
         )
         print(row)
         table_lines.append(row)
 
         plot = tsp.plotData(tour)
-        plot.title(f"{name} optimal tour")
+        plot.title(f"{name} optimal tour (length {length})")
         plot.savefig(config.PLOTS_DIR / f"{name}_opt.png", dpi=150)
         plot.close()
 

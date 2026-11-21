@@ -1,0 +1,107 @@
+{
+  "command": "uv run python DEAP-source-codes/experiments.py step4b --jobs 16",
+  "created": "2026-11-18T00:11:53",
+  "max_evaluations": 50000,
+  "step": "step4b",
+  "description": "Population size below 50 with OX (elites = 10% of mu, at least 1)",
+  "tsps": [
+    "berlin52",
+    "eil101",
+    "tsp225",
+    "pcb442",
+    "pr1002"
+  ],
+  "seeds": [
+    101,
+    102,
+    103,
+    104,
+    105
+  ],
+  "known_optima": {
+    "berlin52": 7542,
+    "eil101": 629,
+    "tsp225": 3916,
+    "pcb442": 50778,
+    "pr1002": 259045
+  },
+  "variants": {
+    "ox-50": {
+      "population_size": 50,
+      "elite_size": 5,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
+    },
+    "ox-30": {
+      "population_size": 30,
+      "elite_size": 3,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
+    },
+    "ox-20": {
+      "population_size": 20,
+      "elite_size": 2,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
+    },
+    "ox-10": {
+      "population_size": 10,
+      "elite_size": 1,
+      "tournament_size": 2,
+      "crossover": "ox",
+      "p_crossover": 0.9,
+      "crossover_indpb": null,
+      "mutation": "swap",
+      "p_mutation": 0.1,
+      "mutation_indpb": null,
+      "init_nn_fraction": 0.0,
+      "control": null,
+      "ap_arms": null,
+      "ap_alpha": 0.8,
+      "ap_beta": 0.8,
+      "ap_p_min": 0.1,
+      "sa_gamma": 0.22
+    }
+  },
+  "versions": {
+    "python": "3.12.4",
+    "deap": "1.4",
+    "numpy": "1.26.3"
+  }
+}
