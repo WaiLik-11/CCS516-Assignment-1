@@ -76,15 +76,15 @@ Table 1 shows the effect on the optimal tours.
 
 **Table 1.** Length of the optimal tour under different rounding methods (output of `tsp.py`).
 
-| Instance | TSP-BEST [5] | TSPLIB `nint` per edge | Python `round()` per edge | `round(total)` | Unrounded | Edges ending in exactly .5 |
-|---|---|---|---|---|---|---|
-| berlin52 | 7542 | **7542** | 7542 | 7544 | 7544.37 | 0 |
-| eil101 | 629 | **629** | 629 | 642 | 642.31 | 0 |
-| tsp225 | 3916 | **3916** | 3861 | 3859 | 3859.00 | 124 |
-| pcb442 | 50778 | **50778** | 50778 | 50784 | 50783.55 | 0 |
-| pr1002 | 259045 | **259045** | 259045 | 259067 | 259066.66 | 0 |
+| Instance | TSP-BEST [5] | TSPLIB `nint` per edge | Python `round()` per edge | Unrounded | Edges ending in exactly .5 |
+|---|---|---|---|---|---|
+| berlin52 | 7542 | **7542** | 7542 | 7544.37 | 0 |
+| eil101 | 629 | **629** | 629 | 642.31 | 0 |
+| tsp225 | 3916 | **3916** | 3861 | 3859.00 | 124 |
+| pcb442 | 50778 | **50778** | 50778 | 50783.55 | 0 |
+| pr1002 | 259045 | **259045** | 259045 | 259066.66 | 0 |
 
-Only rounding each edge with `nint` reproduces all five known optima. The error from Python's `round()` appears only in tsp225. For the other four instances the coordinates are integers, so $\sqrt{xd^2+yd^2}$ is either an integer or irrational and can never end in exactly .5. tsp225 is a rectilinear drawing of the letters "TSP" whose coordinates are offset by half units (e.g. 183.92 − 155.42 = 28.5). 124 of its 225 optimal-tour edges end in exactly .5, and `round()` rounds every one with an even integer part down, producing 3861 instead of 3916. Rounding only the total is wrong for every instance, by up to 13 units on eil101 (642 vs 629).
+Only rounding each edge with `nint` reproduces all five known optima. The error from Python's `round()` appears only in tsp225. For the other four instances the coordinates are integers, so $\sqrt{xd^2+yd^2}$ is either an integer or irrational and can never end in exactly .5. tsp225 is a rectilinear drawing of the letters "TSP" whose coordinates are offset by half units (e.g. 183.92 − 155.42 = 28.5). 124 of its 225 optimal-tour edges end in exactly .5, and `round()` rounds every one with an even integer part down, producing 3861 instead of 3916.
 
 **Answer to Task 2.** The optimal tour lengths are berlin52 = 7542, eil101 = 629, tsp225 = 3916, pcb442 = 50778, pr1002 = 259045, identical to TSP-BEST [5].
 
@@ -561,7 +561,7 @@ On the two small instances the EA does most of the work: it turns tours 8–19% 
 
 # 6. Problems and pitfalls
 
-1. **Rounding (Section 2.4).** Three mistakes are easy to make: Python's `round()` (halves to even; 3861 instead of 3916 on tsp225), rounding the total instead of each edge (wrong on all five instances), and using unrounded distances as the fitness while comparing with integer optima. We use `(int)(d + 0.5)` per edge everywhere and check that the five optimal tours reproduce TSP-BEST exactly.
+1. **Rounding (Section 2.4).** Two mistakes are easy to make: Python's `round()` (halves to even; 3861 instead of 3916 on tsp225), and using unrounded distances as the fitness while comparing with integer optima. We use `(int)(d + 0.5)` per edge everywhere and check that the five optimal tours reproduce TSP-BEST exactly.
 2. **Budget by generations vs. evaluations.** The template stops after 200 generations. Its number of evaluations (≈ 49,440 here) depends on the population size and the operator probabilities, so variants with different settings would get different budgets. Counting evaluations explicitly fixes this. DEAP's `varAnd` does not re-evaluate unchanged offspring, so they must not be counted.
 3. **Stale cache.** The distance matrix is cached with `pickle` and loaded without checking. If the distance formula changes, old values are used silently. The rounded matrix is therefore derived from the cache on every load rather than stored in it.
 4. **DEAP operator details.**
