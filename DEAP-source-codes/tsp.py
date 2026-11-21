@@ -133,14 +133,6 @@ class TravelingSalesmanProblem:
         tour = np.asarray(indices)
         return int(self.distancesRounded[tour, np.roll(tour, -1)].sum())
 
-    def getTotalDistancePythonRounded(self, indices):
-        """Sum tour edges after applying Python's round() to each edge."""
-        total = 0
-        for i, city in enumerate(indices):
-            next_city = indices[(i + 1) % len(indices)]
-            total += round(self.distances[city][next_city])
-        return total
-
     def plotData(self, indices):
         """plots the path described by the given indices of the cities
 
@@ -180,11 +172,11 @@ class TravelingSalesmanProblem:
 def main():
     config.PLOTS_DIR.mkdir(exist_ok=True)
     header = (
-        f"{'TSP':<10}{'cities':>7}{'TSP-BEST':>10}{'TSPLIB nint':>13}{'round()/edge':>14}"
-        f"{'round(total)':>14}{'unrounded':>12}{'x.5 edges':>11}"
+        "| Instance | Cities | Optimal length (TSPLIB nint) | TSP-BEST "
+        "| Unrounded sum | Edges ending in exactly .5 |"
     )
-    table_lines = [header]
-    print(header)
+    table_lines = [header, "|---|---|---|---|---|---|"]
+    print("\n".join(table_lines))
     for name in config.parse_tsp_names("Plot optimal tours"):
         tsp = TravelingSalesmanProblem(name)
         tour = tsp.loadTour()
@@ -194,12 +186,10 @@ def main():
         edges = [tsp.distances[tour[i]][tour[(i + 1) % n]] for i in range(n)]
         length = tsp.getTotalDistanceRounded(tour)
         assert length == config.KNOWN_OPTIMA[name], "must equal the known optimum"
+        half_edges = sum(1 for edge in edges if abs(edge % 1 - 0.5) < 1e-9)
         row = (
-            f"{name:<10}{n:>7}{config.KNOWN_OPTIMA[name]:>10}{length:>13}"
-            f"{tsp.getTotalDistancePythonRounded(tour):>14}"
-            f"{round(sum(edges)):>14}"
-            f"{sum(edges):>12.2f}"
-            f"{sum(1 for edge in edges if abs(edge % 1 - 0.5) < 1e-9):>11}"
+            f"| {name} | {n} | {length} | {config.KNOWN_OPTIMA[name]} "
+            f"| {sum(edges):.2f} | {half_edges} |"
         )
         print(row)
         table_lines.append(row)
