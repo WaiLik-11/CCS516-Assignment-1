@@ -1,101 +1,100 @@
-# CCS516 Assignment 1: TSP with DEAP
+# CCS516 Assignment 1: Solving the TSP with a Distributed Evolutionary Algorithm (DEAP)
 
-Solving berlin52, eil101, tsp225, pcb442 and pr1002 using a Distributed Evolutionary Algorithm (DEAP).
+Solving berlin52, eil101, tsp225, pcb442 and pr1002 with an evolutionary algorithm (EA) built on DEAP, limited to 50,000 fitness evaluations per run and averaged over 5 runs.
 
-## Environment setup
+| Member | Student ID |
+|--------|-----------|
+| AU WAI LIK | 25203542 |
+| TIFFANY TIEN NEE PRAGASAM | 25203306 |
 
-Requires [uv](https://docs.astral.sh/uv/getting-started/installation/). Python 3.12 is picked from `.python-version` (uv downloads it if missing).
+Group 02, CCS516 Computational Intelligence, Semester 1, 2026/2027, Universiti Sains Malaysia.
+
+---
+
+## 1. Overview
+
+| Task | Description | Script | Output |
+|------|-------------|--------|--------|
+| 1 | Plot the optimal tour of each instance | [tsp.py](DEAP-source-codes/tsp.py) | [plots/](plots/) |
+| 2 | Compute the optimal tour lengths (TSPLIB rounding) | [tsp.py](DEAP-source-codes/tsp.py) | [results/optimal_length.txt](results/optimal_length.txt) |
+| 3 | Design the EA, tune it step by step, and report the final results | [solve_tsp.py](DEAP-source-codes/solve_tsp.py), [elitism.py](DEAP-source-codes/elitism.py), [experiments.py](DEAP-source-codes/experiments.py) | [results/](results/) |
+
+The full write-up (algorithm, experiments, results, problems and pitfalls) is in [results-report/CCS516_A01_Report.md](results-report/CCS516_Group02_A01.pdf).
+
+## 2. Required Software
+
+| Software | Version | Purpose |
+|----------|---------|---------|
+| [uv](https://docs.astral.sh/uv/) | latest | Installs Python 3.12 and every dependency pinned in `uv.lock`, so everyone gets identical versions |
+| Git | any | Clone the repository |
+
+Install uv:
+
+```bash
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+## 3. Libraries
+
+| Library | Role |
+|---------|------|
+| [DEAP](https://deap.readthedocs.io/) 1.4.1 | Evolutionary algorithm framework: toolbox, crossover, mutation, selection, hall of fame |
+| NumPy | Distance matrix, tour lengths, random seeding |
+| SciPy | Wilcoxon signed-rank test for comparing variants |
+| matplotlib, seaborn | Tour plots and convergence graphs |
+
+`pyproject.toml` also pins the other packages of the course's DEAP environment. The code does not use them.
+
+## 4. Installation
 
 ```bash
 git clone https://github.com/WaiLik-11/CCS516-Assignment-1.git
 cd CCS516-Assignment-1
-uv sync
+
+uv sync        # creates .venv with Python 3.12 and the exact versions in uv.lock
+uv run python -c "import deap; print(deap.__version__)"   # should print 1.4.1
 ```
 
-`uv sync` creates `.venv/` and installs the exact versions pinned in `uv.lock`.
+There is no need to activate `.venv`: `uv run` uses it automatically.
 
-## Project structure
+To add a package, run `uv add <package>` and commit both `pyproject.toml` and `uv.lock`.
 
-```
-CCS516-Assignment-1/
-├── CCS516_Assignment01_S261_v1.pdf   # assignment brief
-├── pyproject.toml, uv.lock           # pinned dependencies (uv)
-├── .python-version                   # Python 3.12
-├── DEAP-source-codes/
-│   ├── config.py                     # shared paths + experiment settings (edit here, not in scripts)
-│   ├── tsp.py                        # TSP class: load data, tour length, plot optimal tours
-│   ├── solve_tsp.py                  # the EA: DEAP toolbox built from a parameter dict, one seeded run
-│   ├── elitism.py                    # eaSimple with elitism + 50,000-evaluation budget
-│   ├── operators.py                  # operators DEAP lacks: enhanced edge recombination crossover (ERX)
-│   └── experiments.py                # reproducible experiment runner, one entry per design step
-├── tsp-data/                         # .tsp city coordinates and .opt.tour optimal tours
-├── plots/                            # generated optimal-tour PNGs
-└── results/                          # experiment results, one folder per design step
-```
+## 5. Execution Procedure
 
-## Running scripts
+Run all commands from the repository root. Commands that take instance names use all five (`berlin52`, `eil101`, `tsp225`, `pcb442`, `pr1002`) when none is given. Add `--help` to a script to see its options.
 
-Run everything from the repo root. No need to activate `.venv` manually; `uv run` uses it
-automatically. Most commands take instance names, or all five (`berlin52`, `eil101`, `tsp225`,
-`pcb442`, `pr1002`) when left out. Add `--help` to any script for its options.
-
-### Questions 1 and 2: optimal tour plots and optimal tour lengths
+### Tasks 1 and 2: optimal tour plots and lengths
 
 ```bash
 uv run python DEAP-source-codes/tsp.py                  # all five instances
 uv run python DEAP-source-codes/tsp.py berlin52 eil101  # only these
 ```
 
-Writes `plots/<tsp>_opt.png` (Q1) and prints the optimal tour length of each instance (Q2), computed
-with TSPLIB's per-edge rounding, next to the two common mistakes (Python `round()` per edge, rounding
-the total).
+Writes `plots/<tsp>_opt.png` and prints the table below, which is also saved to `results/optimal_length.txt`. The script stops with an error if a computed length differs from the known optimum.
 
-### Question 3: the EA design, step by step (tuning seeds 101–105)
+| Instance | Cities | Optimal length (TSPLIB nint) | TSP-BEST | Unrounded sum | Edges ending in exactly .5 |
+|---|---|---|---|---|---|
+| berlin52 | 52 | 7542 | 7542 | 7544.37 | 0 |
+| eil101 | 101 | 629 | 629 | 642.31 | 0 |
+| tsp225 | 225 | 3916 | 3916 | 3859.00 | 124 |
+| pcb442 | 442 | 50778 | 50778 | 50783.55 | 0 |
+| pr1002 | 1002 | 259045 | 259045 | 259066.66 | 0 |
 
-Each step compares a few variants of the EA and writes `results/<step>/` (see [Experiments](#experiments)).
-Run them in order; the decision of each step is in the [Step log](#step-log).
+**Rounding trap.** TSPLIB rounds each edge with `nint(x) = (int)(x + 0.5)`, which always rounds a half up. Python's `round()` rounds halves to the nearest even number (`round(28.5)` is 28). Only tsp225 is affected, because 124 of its optimal-tour edges end in exactly .5. Python's `round()` gives 3861 there instead of the published 3916. We use the TSPLIB rule everywhere, both for the optimal lengths and as the EA fitness.
 
-```bash
-for step in step1 step2 step3 step4 step4b step5a step5b step6 step6b step7 step7b step9; do
-    uv run python DEAP-source-codes/experiments.py $step --jobs 16
-done
-```
-
-| Step | Question it answers |
-|---|---|
-| `step1` | Baseline: the template's operators, capped at 50,000 evaluations |
-| `step2` | Mutation: swap vs inversion |
-| `step3` | Crossover: OX vs PMX vs UPMX vs ERX vs none |
-| `step4`, `step4b` | Population size (and so the number of generations) |
-| `step5a` | Tournament size (selection pressure) |
-| `step5b` | Crossover and mutation probabilities |
-| `step6`, `step6b` | Parameter control: adaptive pursuit, self-adaptive p_m, uniform mix |
-| `step7`, `step7b` | Verification: re-test earlier choices at the design after step 5 |
-| `step9` | Initialization: random vs nearest-neighbour seeded start (decides the final design) |
-
-About 25 minutes in total with `--jobs 16`; steps 2, 3 and 7 are the slowest (ERX). Set `--jobs` to
-the number of CPU cores; it does not change the results. To run a single step, run its line on its own.
-
-### Question 3: final results (reporting seeds 1–5)
+### Task 3: the final EA (reporting seeds 1-5)
 
 ```bash
 uv run python DEAP-source-codes/experiments.py step9 --seeds reporting --jobs 16
 ```
 
-Runs every step 9 variant 5 times per instance on the reporting seeds and writes
-`results/step9-reporting/`. **The final design is the `nn-50-fixed` variant**: its rows in
-`summary.csv` hold the reported best / average / worst / std and the deviation % of the average from
-the optimum, `best_tour_nn-50-fixed_<tsp>.png` holds its best tour per instance, and
-`comparison.csv` compares it with random initialization and with the original template (`template`)
-on the same seeds.
+Runs every step 9 variant 5 times per instance and writes `results/step9-reporting/`. The final design is the `nn-50-fixed` variant. Its rows in `summary.csv` hold the reported numbers, and `best_tour_nn-50-fixed_<tsp>.png` shows its best tour per instance.
 
-Step 8 is an intermediate check, not the final results: it runs the design chosen before heuristic
-initialization (random start) on the reporting seeds, to confirm the inversion and parameter-control
-decisions on fresh seeds:
-
-```bash
-uv run python DEAP-source-codes/experiments.py step8 --seeds reporting --jobs 16
-```
+Set `--jobs` to the number of CPU cores. It only affects speed, not the results.
 
 To run the final EA once (reporting seed 1) and watch its progress:
 
@@ -103,10 +102,27 @@ To run the final EA once (reporting seed 1) and watch its progress:
 uv run python DEAP-source-codes/solve_tsp.py berlin52
 ```
 
+### Task 3: reproducing the design steps (tuning seeds 101-105)
+
+Each step compares a few variants of the EA and writes `results/<step>/`. Run them in order:
+
+```bash
+for step in step1 step2 step3 step4 step4b step5a step5b step6 step6b step7 step7b step9; do
+    uv run python DEAP-source-codes/experiments.py $step --jobs 16
+done
+```
+
+This takes about 25 minutes with `--jobs 16`. Steps 2, 3 and 7 are the slowest because of ERX. To run one step, run its line on its own.
+
+Step 8 re-checks the design chosen before heuristic initialization on the reporting seeds. It is not used for any decision:
+
+```bash
+uv run python DEAP-source-codes/experiments.py step8 --seeds reporting --jobs 16
+```
+
 ### Checking a re-run
 
-Runs are deterministic, so a re-run must give the same tour lengths as the committed results; only
-the timings change. Compare the first 8 columns of every `runs.csv` against the last commit:
+Runs are deterministic, so a re-run must give the same tour lengths as the committed results. Only the timings change. Compare the first 8 columns of every `runs.csv` against the last commit:
 
 ```bash
 for f in results/*/runs.csv; do
@@ -118,73 +134,93 @@ for f in results/*/runs.csv; do
 done
 ```
 
-## Experiments
+## 6. Assignment Project Structure
 
-Every design step is an entry in `STEPS` in `experiments.py`: a base parameter dict and a few
-variants that each change **one** component. `experiments.py <step>` runs every variant on every
-selected TSP with every seed. A run stops after 50,000 fitness evaluations, or earlier if it reaches
-the known optimum (only some berlin52 runs in step 9 do). Each step writes
-`results/<step>/`:
+```
+CCS516-Assignment-1/
+├── README.md
+├── pyproject.toml, uv.lock           # pinned dependencies (uv)
+├── .python-version                   # Python 3.12
+├── DEAP-source-codes/
+│   ├── config.py                     # shared paths and settings (50,000 evaluations, 5 runs, seeds)
+│   ├── tsp.py                        # TSP class: load data, tour length, plot optimal tours (Tasks 1, 2)
+│   ├── solve_tsp.py                  # the EA: DEAP toolbox built from a parameter dict, one seeded run
+│   ├── elitism.py                    # eaSimple with elitism, an exact evaluation budget, parameter control
+│   ├── operators.py                  # operators DEAP lacks: enhanced edge recombination (ERX), nearest-neighbour tours
+│   └── experiments.py                # reproducible experiment runner, one entry per design step
+├── tsp-data/                         # .tsp city coordinates and .opt.tour optimal tours
+├── plots/                            # optimal-tour PNGs (Task 1)
+├── results/                          # optimal_length.txt and one folder per design step
+└── results-report/                   # the full report
+```
+
+`tsp-data/*.pickle` files are caches of the distance matrices. They are created on the first run and are git-ignored. Delete them after changing the distance code.
+
+Settings that apply to every script (paths, instance names, the 50,000-evaluation cap, number of runs, seeds) live in `config.py`.
+
+## 7. The Final EA Design
+
+| Component | Choice |
+|-----------|--------|
+| Representation | Permutation of the city indices |
+| Fitness | TSPLIB EUC_2D tour length (each edge rounded with `nint`), minimised |
+| Initialization | 50 nearest-neighbour tours, each from a different random start city |
+| Parent selection | Tournament, size 2 |
+| Crossover | Order crossover (OX), probability 0.9 per pair |
+| Mutation | Inversion, probability 0.1 per offspring |
+| Population model | Generational, population 50, with the 5 best tours copied unchanged each generation (elitism) |
+| Termination | 50,000 fitness evaluations, or earlier when the known optimum is reached |
+| Seeds | Tuning 101-105, reporting 1-5. Each run seeds `random` and NumPy |
+
+### Final results
+
+Reporting seeds 1-5, 50,000 evaluations per run. Deviation % = (average - optimum) / optimum x 100, so 0% is best.
+
+| Instance | Optimum | Best | Average | Worst | Std | Deviation % |
+|---|---|---|---|---|---|---|
+| berlin52 | 7542 | 7542 | 7676.8 | 7807 | 115.4 | 1.79 |
+| eil101 | 629 | 654 | 666.0 | 681 | 9.9 | 5.88 |
+| tsp225 | 3916 | 4369 | 4442.8 | 4520 | 61.3 | 13.45 |
+| pcb442 | 50778 | 58421 | 59095.2 | 59620 | 483.5 | 16.38 |
+| pr1002 | 259045 | 311547 | 312796.0 | 313703 | 895.0 | 20.75 |
+
+On the same seeds the final design's tours are 73.9% shorter than the original template's (25 of 25 runs, Wilcoxon p = 6e-8). On pcb442 and pr1002 the EA improves its best starting nearest-neighbour tour by less than 1%, so most of the quality there comes from the initialization.
+
+## 8. How the Design Was Chosen
+
+Every design step is an entry in `STEPS` in `experiments.py`: a base parameter dict and a few variants that each change **one** component. Running `experiments.py <step>` runs every variant on every selected instance with every seed, and writes to `results/<step>/`:
 
 - `metadata.json`: full parameters per variant, seeds, budget, command, library versions
-- `runs.csv` (one row per run), `summary.csv` (best/mean/worst/std, deviation % of the mean)
-- `convergence.csv` (best length so far every 500 evaluations, per run) and `convergence_<tsp>.png`
+- `runs.csv` (one row per run) and `summary.csv` (best, mean, worst, std, deviation %)
+- `comparison.csv`: wins per instance and a Wilcoxon signed-rank test on the paired log length ratios, pooled over all instances (`--reanalyse` recomputes it from the saved runs)
+- `convergence.csv` (best length every 500 evaluations) and `convergence_<tsp>.png`
 - `best_tour_<variant>_<tsp>.png`, only with `--seeds reporting`
 
-Results do not depend on `--jobs`: each run seeds `random`/`numpy` itself.
+All comparisons use the tuning seeds 101-105. The final results use the separate reporting seeds 1-5, so they are not tuned on their own seeds.
 
-Comparisons (`comparison.csv`): wins per instance, and a Wilcoxon signed-rank test on the paired log length
-ratios pooled over all instances. `--reanalyse` recomputes them from a step's saved `runs.csv`.
-
-Seeds: `TUNING_SEEDS` (101–105) for all comparisons, `RANDOM_SEEDS` (1–5) only for the final
-reported results, so the reported numbers are not tuned on their own seeds.
-
-Fitness is the TSPLIB EUC_2D tour length (each edge rounded with `nint(x) = (int)(x + 0.5)`), the
-same measure as the known optima. Deviation % = (mean − optimum) / optimum × 100.
-
-### Step log
-
-| Step | Question | Variants | Decision |
-|---|---|---|---|
-| 1 | Baseline: original template operators, capped at 50,000 evaluations | baseline | Reference for step 2 (results below) |
-| 2 | Mutation: swap vs inversion (at p_m 0.1 and 0.5, and with ERX as an early order check) | swap, inversion, swap-pm0.5, inversion-pm0.5, swap-erx, inversion-erx | No significant difference between swap and inversion in any setting (swap significantly better in the baseline setting, p = 0.026; p = 0.29 and 0.98 in the others), and the winner changes with the setting. p_m 0.5 is worse than 0.1 for both. **Keep swap, p_m 0.1** (no evidence to change); revisit mutation in the verification step. ERX gave the largest gain, so crossover is step 3 |
-| 3 | Crossover: OX vs PMX vs UPMX (indpb 0.1, 0.5) vs ERX vs none | ox, pmx, upmx-0.1, upmx-0.5, erx, no-crossover | PMX and UPMX are significantly worse than OX (0–1/25 wins, p < 1e-6): drop them. ERX beats OX on all 5 instances (24/25 wins, pooled: 19.9% shorter tours, p = 1.8e-7). No crossover is best on the 2 largest instances, but only because its unchanged offspring are free: it gets 1842 generations vs 203. **Keep OX and ERX (no crossover as control); decide in step 4 together with the population size** |
-| 4 | Population size x crossover: mu in {300, 100, 50} (elites 10%), crossover in {OX, ERX, none} | ox/erx/none-300, -100, -50 | Smaller mu is the biggest gain so far (OX mu 50 vs 300: 22/25 wins, p = 1.5e-6). ERX is significantly worse than OX at mu 100 and 50 (7 and 0/25 wins, p = 0.003 and 6e-8): it collapses small populations. OX beats no crossover on 4/5 instances at mu 50 (p = 0.0006, pr1002 the exception) |
-| 4b | Extend mu below 50 (best value was at the edge): OX, mu in {50, 30, 20, 10} | ox-50, ox-30, ox-20, ox-10 | mu 50 best on 4/5 instances; mu 30 only better on pr1002 (not significant overall, p = 0.16); mu ≤ 20 clearly worse. **Use OX, mu = 50, 5 elites**; drop ERX |
-| 5a | Tournament size k in {1, 2, 3, 5, 7} | k1, k2, k3, k5, k7 | k = 2 significantly better than all others (k3: +8.9% longer tours, p = 0.0006; k1 random parents: +67%). **Keep k = 2** |
-| 5b | p_c in {0.6, 0.9, 1.0} x p_m in {0.05, 0.1, 0.2} | pc*-pm* | No setting significantly different overall (all p ≥ 0.096): small instances prefer more variation (p_c 1.0, p_m 0.2), pr1002 less (p_c 0.6, p_m 0.05, 5/5 wins). **Keep p_c 0.9, p_m 0.1**; motivates parameter control |
-| 6 | Parameter control vs tuned: adaptive pursuit over (p_c, p_m) in {(0.6, 0.05), (0.9, 0.1), (1.0, 0.2)}; self-adaptive p_m | tuned, adaptive-pursuit, self-adaptive-pm | Neither significant overall (pursuit −1.0%, p = 0.30; self-adaptive +1.6%, p = 0.28). Self-adaptive p_m helps berlin52/eil101 (5/5) but hurts pcb442/pr1002 (0/5): p_m rises on every instance, so it cannot learn pr1002's preference for less variation. Pursuit probabilities oscillate |
-| 6b | Pursuit learning rates {0.8, 0.3, 0.1, 0.03} + uniform mix (beta = 0, no learning) | tuned, ap-*, uniform-mix | ap-0.1 best vs tuned (−2.76%, p = 0.012) but uniform mix also helps (−1.41%, p = 0.039) and no pursuit variant beats uniform mix (best p = 0.28): the gain is from mixing settings, not learning. Not significant after Bonferroni (5 comparisons). **Candidates for the final runs: tuned, uniform-mix, ap-0.1** |
-| 7 | Verification at the final design (mu = 50): inversion, PMX, UPMX, ERX, no crossover | tuned, inversion, pmx, upmx-0.1, erx, no-crossover | **Order effect: inversion now significantly better than swap** (−4.9%, p = 0.011; swap had won at mu = 300). OX confirmed (all alternatives significantly worse) |
-| 7b | With inversion: p_m in {0.05, 0.1, 0.2, 0.5}, uniform mix, pursuit 0.1 | inv-* | p_m 0.1 kept; uniform mix again better than fixed (−1.85%, p = 0.022); pursuit not better than uniform mix (p = 0.67). **Final design: OX, inversion, k 2, mu 50, uniform mix of (p_c, p_m)** (decision rule fixed before step 8) |
-| 8 | Check of the random-start design on the reporting seeds 1–5 (`--seeds reporting`) | random-start, inv-fixed, swap-fixed, template, per-instance | Confirmed: random-start vs fixed −2.0% (p = 0.045), vs swap design −5.5% (p = 0.0015), vs template −35.5% (25/25). Per-instance tuning no better (p = 0.85). Deviation % (random start, superseded by step 9): berlin52 8.80, eil101 20.06, tsp225 139.37, pcb442 382.26, pr1002 948.83 |
-| 9 | Initialization: 0, 1, 5, 15 or 50 of the 50 initial tours by nearest neighbour (distinct random starts); fixed vs mixed probabilities | random, nn-1, nn-5, nn-15, nn-50, nn-5-fixed, nn-50-fixed | Largest effect of the study: seeding gives 58–60% shorter tours (p < 1e-6); 50 NN better than 5 (p = 0.0004); mixing no longer helps (p = 0.26). **Final design: nn-50-fixed** (OX p_c 0.9, inversion p_m 0.1, k 2, mu 50, 5 elites, all-NN start). Reporting seeds (`step9-reporting`, final results): berlin52 1.79, eil101 5.88, tsp225 13.45, pcb442 16.38, pr1002 20.75 deviation %; 73.9% shorter tours than the template (25/25). On pcb442/pr1002 the EA improves its best starting tour by < 1% |
-
-Step 1, tuning seeds 101–105 (OX p_c = 0.9, swap mutation p_m = 0.1, tournament 2, μ = 300, 30 elites, random initialization):
-
-| TSP | Optimum | Best | Mean | Worst | Std | Deviation % |
-|---|---|---|---|---|---|---|
-| berlin52 | 7542 | 8460 | 8659.8 | 9022 | 243.0 | 14.82 |
-| eil101 | 629 | 1069 | 1155.4 | 1259 | 77.8 | 83.69 |
-| tsp225 | 3916 | 17607 | 18023.6 | 18291 | 281.0 | 360.26 |
-| pcb442 | 50778 | 414058 | 429289.6 | 436732 | 9275.6 | 745.42 |
-| pr1002 | 259045 | 4111551 | 4163176 | 4224493 | 44063.5 | 1507.12 |
-
-## Conventions
-
-- Paths, TSP names, the 50,000-evaluation cap, number of runs and random seeds live in `config.py`; import them, don't hardcode.
-- Use only the libraries in `pyproject.toml` (DEAP environment).
-- Generated files (`*.pickle`, `results/`) are git-ignored.
-- Work on a branch, open a PR, and link the issue (`Closes #N`).
-
-## Task split
-
-| Area | Owner | Issues |
+| Step | Question | Result |
 |---|---|---|
-| Plots, optimal lengths, experiment runner | Member A | #2, #3, #5 |
-| EA design and tuning (`solve_tsp.py`, `elitism.py`) | Member B | #4, #6 |
+| 1 | Baseline: the template's operators, capped at 50,000 evaluations | 14.8% to 1507% deviation, far from converged on the large instances |
+| 2 | Mutation: swap vs inversion | No significant gain from inversion at the baseline's population size. Keep swap, revisit in step 7 |
+| 3 | Crossover: OX, PMX, UPMX, ERX, none | PMX and UPMX are worse than OX. ERX is best at population 300. "No crossover" only looks good because unchanged offspring are free (1842 vs 203 generations) |
+| 4, 4b | Population size | Population 50 with OX is best. ERX collapses small populations |
+| 5a | Tournament size | Size 2 beats 1, 3, 5 and 7 |
+| 5b | Crossover and mutation probabilities | No setting is significantly better overall. Keep 0.9 and 0.1 |
+| 6, 6b | Parameter control (adaptive pursuit, self-adaptive p_m, uniform mix) | The gain comes from mixing settings, not from learning. Not significant after correcting for 6 comparisons |
+| 7, 7b | Verification at population 50 | Inversion now beats swap (-4.9%, p = 0.011): the best mutation depended on the population size |
+| 8 | Check on the reporting seeds (random start) | Confirms steps 6b-7b. Not used for any decision |
+| 9 | Initialization: 0, 1, 5, 15 or 50 nearest-neighbour tours | Largest effect of the study: 59.5% shorter tours (p = 6e-8). Mixing no longer helps, so the final design uses fixed probabilities (`nn-50-fixed`) |
 
-## Notes
+The reasoning, tables and statistics for every step are in the report.
 
-- Dependencies are the same as the DEAP course environment, except `multidict` is 6.0.5 (6.0.4 fails to build on macOS arm64 with Python 3.12).
-- To add a package: `uv add <package>`, then commit `pyproject.toml` and `uv.lock`.
+## 9. References
+
+1. G. Reinelt, "TSPLIB 95", Universitat Heidelberg, 1995: https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/tsp/tsp95.pdf
+2. Best known TSPLIB solutions (TSP-BEST): https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/tsp/TSP-BEST.html
+3. F.-A. Fortin et al., "DEAP: Evolutionary algorithms made easy", *J. Mach. Learn. Res.*, vol. 13, pp. 2171-2175, 2012.
+4. The full reference list is at the end of the report.
+
+## 10. Notes
+
+- The dependencies match the course's DEAP environment, except `multidict` is 6.0.5 (6.0.4 fails to build on macOS arm64 with Python 3.12).
+- Generated results in `results/` and `plots/` are committed as the evidence for the report. Running a script overwrites them, and `git checkout -- results plots` restores the committed copies.

@@ -11,14 +11,14 @@ Citations are IEEE style [n]; see References. [CHECK] every reference (pages, ye
 
 School of Computer Sciences, Universiti Sains Malaysia, Semester 1, 2026/2027
 
-Group: [TODO GroupXX]
+Group: Group 02
 
-| Name | Matric No. | Contribution |
-|---|---|---|
-| [TODO] | [TODO] | [TODO] |
-| [TODO] | [TODO] | [TODO] |
+| Name | Matric No. |
+|---|---|
+| AU WAI LIK | 25203542 |
+| TIFFANY TIEN NEE PRAGASAM | 25203306 |
 
-Submission package: `CCS516_[GroupNumber]_A01.zip`. Source code: [TODO repository link / commit hash].
+Submission package: `CCS516_Group02_A01.zip`. Source code: https://github.com/WaiLik-11/CCS516-Assignment-1
 
 ---
 
